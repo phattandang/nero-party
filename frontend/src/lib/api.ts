@@ -1,4 +1,5 @@
-const BASE = "http://localhost:3000";
+// In dev: Vite proxies /api → localhost:3000. In prod: same origin.
+const BASE = "";
 
 export async function createParty(data: {
   name: string;

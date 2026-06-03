@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Play, Pause, SkipForward, MagnifyingGlass, Fire, Users,
-  Copy, Check, Crown, MusicNote, Plus, ArrowRight, X, LinkSimple
+  Copy, Check, Crown, MusicNote, Plus, ArrowRight, X, LinkSimple,
+  DotsThreeVertical, ArrowFatLinesUp, DotsSixVertical, ClockCounterClockwise,
 } from "@phosphor-icons/react";
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { socket } from "../lib/socket";
-import { searchMusic } from "../lib/api";
+import { searchMusic, getParty } from "../lib/api";
 import type { Party, Participant, QueueItem, Track } from "../lib/types";
 
 // ─── Audio Waveform ───────────────────────────────────────────────────────────
@@ -59,16 +69,26 @@ function AvatarStack({ participants }: { participants: Participant[] }) {
 
 // ─── Now Playing Card ─────────────────────────────────────────────────────────
 
+function formatTime(s: number) {
+  if (!isFinite(s)) return "0:00";
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
 function NowPlayingCard({
-  item, isPlaying, onPlayPause, isHost, myVote, onVote, totalVoters,
+  item, isPlaying, onPlayPause, myVote, onVote, totalVoters, currentTime, duration, onSeek, isHost,
 }: {
   item: QueueItem | null;
   isPlaying: boolean;
   onPlayPause: () => void;
-  isHost: boolean;
   myVote: boolean;
   onVote: () => void;
   totalVoters: number;
+  currentTime: number;
+  duration: number;
+  onSeek: (t: number) => void;
+  isHost: boolean;
 }) {
   if (!item) {
     return (
@@ -83,6 +103,8 @@ function NowPlayingCard({
     );
   }
 
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
   return (
     <motion.div
       key={item.id}
@@ -95,20 +117,14 @@ function NowPlayingCard({
         className="rounded-[calc(2rem-0.375rem)] overflow-hidden relative"
         style={{ background: "rgba(8,8,12,0.9)", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.06)" }}
       >
-        {/* Album art blurred background */}
         {item.albumArt && (
           <div
             className="absolute inset-0 opacity-20"
-            style={{
-              backgroundImage: `url(${item.albumArt})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              filter: "blur(40px) saturate(1.5)",
-            }}
+            style={{ backgroundImage: `url(${item.albumArt})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(40px) saturate(1.5)" }}
           />
         )}
         <div className="relative z-10 p-8">
-          {/* Now playing label */}
+          {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <Waveform playing={isPlaying} />
@@ -120,29 +136,62 @@ function NowPlayingCard({
           </div>
 
           {/* Art + info */}
-          <div className="flex gap-6 items-center mb-8">
+          <div className="flex gap-6 items-center mb-6">
             {item.albumArt ? (
-              <div className="rounded-[1.2rem] border border-white/10 p-1" style={{ background: "rgba(255,255,255,0.05)" }}>
-                <img
-                  src={item.albumArt}
-                  alt={item.title}
-                  className="w-24 h-24 rounded-[calc(1.2rem-0.25rem)] object-cover"
-                />
+              <div className="rounded-[1.2rem] border border-white/10 p-1 flex-shrink-0" style={{ background: "rgba(255,255,255,0.05)" }}>
+                <img src={item.albumArt} alt={item.title} className="w-24 h-24 rounded-[calc(1.2rem-0.25rem)] object-cover" />
               </div>
             ) : (
-              <div className="w-24 h-24 rounded-2xl bg-white/5 flex items-center justify-center">
+              <div className="w-24 h-24 rounded-2xl bg-white/5 flex items-center justify-center flex-shrink-0">
                 <MusicNote size={32} className="text-white/20" />
               </div>
             )}
             <div className="flex-1 min-w-0">
               <h2 className="text-2xl font-bold tracking-tight leading-tight truncate mb-1">{item.title}</h2>
-              <p className="text-white/50 text-sm truncate">{item.artist}</p>
+              <p className="text-white/50 text-sm truncate mb-3">{item.artist}</p>
+              {isHost ? (
+                <button
+                  onClick={onPlayPause}
+                  className="flex items-center gap-2 rounded-full bg-white/8 border border-white/10 px-4 py-2 text-xs font-semibold text-white/60 hover:text-white hover:bg-white/12 transition-all duration-200 active:scale-95"
+                >
+                  {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+                  {isPlaying ? "Pause" : "Play"}
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[10px] text-white/25 font-medium">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? "bg-violet-400 animate-pulse" : "bg-white/20"}`} />
+                  {isPlaying ? "Synced with host" : "Paused by host"}
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Vote + controls row */}
+          {/* Progress bar — interactive for host, read-only for guests */}
+          <div className="mb-5">
+            <div className="relative">
+              <input
+                type="range"
+                min={0}
+                max={duration || 100}
+                step={0.1}
+                value={currentTime}
+                onChange={(e) => isHost && onSeek(Number(e.target.value))}
+                disabled={!isHost}
+                className={`w-full h-1 rounded-full appearance-none ${isHost ? "cursor-pointer" : "cursor-default"}`}
+                style={{
+                  background: `linear-gradient(to right, #a78bfa ${progress}%, rgba(255,255,255,0.1) ${progress}%)`,
+                  outline: "none",
+                }}
+              />
+            </div>
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10px] text-white/30 font-mono">{formatTime(currentTime)}</span>
+              <span className="text-[10px] text-white/20 font-mono">{formatTime(duration)}</span>
+            </div>
+          </div>
+
+          {/* Vote row */}
           <div className="flex items-center justify-between">
-            {/* Vote / fire button */}
             <motion.button
               onClick={onVote}
               whileTap={{ scale: 0.92 }}
@@ -152,28 +201,10 @@ function NowPlayingCard({
                   : "bg-white/5 border border-white/10 text-white/50 hover:bg-white/8 hover:text-white/70"
               }`}
             >
-              <Fire
-                size={16}
-                weight={myVote ? "fill" : "regular"}
-                className={myVote ? "text-orange-400" : ""}
-              />
+              <Fire size={16} weight={myVote ? "fill" : "regular"} className={myVote ? "text-orange-400" : ""} />
               <span>{item.votes.length}</span>
-              {totalVoters > 0 && (
-                <span className="text-[10px] opacity-50">/ {totalVoters}</span>
-              )}
+              {totalVoters > 0 && <span className="text-[10px] opacity-50">/ {totalVoters}</span>}
             </motion.button>
-
-            {/* Play controls — host only */}
-            {isHost && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={onPlayPause}
-                  className="w-10 h-10 rounded-full bg-white/8 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/12 transition-all duration-200"
-                >
-                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -181,57 +212,152 @@ function NowPlayingCard({
   );
 }
 
-// ─── Queue Item Row ───────────────────────────────────────────────────────────
+// ─── Queue Item Row (Sortable) ────────────────────────────────────────────────
 
 function QueueRow({
-  item, index, myVote, onVote, isCurrentlyPlaying,
+  item, myVote, onVote, isHost, onMoveToTop, onSkipTo,
 }: {
   item: QueueItem;
-  index: number;
   myVote: boolean;
   onVote: () => void;
-  isCurrentlyPlaying: boolean;
+  isHost: boolean;
+  onMoveToTop: (id: string) => void;
+  onSkipTo: (id: string) => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const dotsBtnRef = useRef<HTMLButtonElement>(null);
+
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: item.id, disabled: !isHost });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : "auto" as const,
+  };
+
+  function openMenu(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (dotsBtnRef.current) {
+      const rect = dotsBtnRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.top, right: window.innerWidth - rect.right });
+    }
+    setMenuOpen(true);
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function close() { setMenuOpen(false); }
+    document.addEventListener("mousedown", close, { once: true });
+    return () => document.removeEventListener("mousedown", close);
+  }, [menuOpen]);
+
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, x: -16 }}
-      animate={{ opacity: 1, x: 0, transition: { delay: index * 0.05, duration: 0.4, ease: [0.32, 0.72, 0, 1] } }}
-      className={`group flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 ${
-        isCurrentlyPlaying
-          ? "border-violet-500/30 bg-violet-500/8"
-          : "border-white/6 bg-white/3 hover:bg-white/5 hover:border-white/10"
-      }`}
-    >
-      {item.albumArt ? (
-        <img src={item.albumArt} alt={item.title} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
-      ) : (
-        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
-          <MusicNote size={16} className="text-white/20" />
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate">{item.title}</p>
-        <p className="text-xs text-white/40 truncate">{item.artist}</p>
-      </div>
-      <button
-        onClick={onVote}
-        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 flex-shrink-0 ${
-          myVote
-            ? "bg-orange-500/20 text-orange-400"
-            : "bg-white/5 text-white/30 hover:bg-white/8 hover:text-white/50"
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        onClick={() => !isDragging && onSkipTo(item.id)}
+        className={`group flex items-center gap-3 rounded-2xl border p-3 transition-colors duration-200 cursor-pointer ${
+          isDragging
+            ? "border-violet-500/40 bg-violet-500/10 shadow-[0_8px_32px_rgba(124,58,237,0.2)]"
+            : "border-white/6 bg-white/3 hover:bg-white/5 hover:border-violet-500/20"
         }`}
       >
-        <Fire size={12} weight={myVote ? "fill" : "regular"} />
-        {item.votes.length}
-      </button>
-    </motion.div>
+        {/* Drag handle — host only, stops propagation so row click doesn't fire */}
+        {isHost && (
+          <button
+            {...attributes}
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-shrink-0 text-white/20 hover:text-white/50 cursor-grab active:cursor-grabbing transition-colors duration-150 touch-none"
+            tabIndex={-1}
+          >
+            <DotsSixVertical size={16} />
+          </button>
+        )}
+
+        {item.albumArt ? (
+          <img src={item.albumArt} alt={item.title} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+        ) : (
+          <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+            <MusicNote size={16} className="text-white/20" />
+          </div>
+        )}
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold truncate">{item.title}</p>
+          <p className="text-xs text-white/40 truncate">{item.artist}</p>
+        </div>
+
+        {/* Vote button — stops row click */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onVote(); }}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 flex-shrink-0 ${
+            myVote ? "bg-orange-500/20 text-orange-400" : "bg-white/5 text-white/30 hover:bg-white/8 hover:text-white/50"
+          }`}
+        >
+          <Fire size={12} weight={myVote ? "fill" : "regular"} />
+          {item.votes.length}
+        </button>
+
+        {/* Three-dot menu — host only, fixed-position portal */}
+        {isHost && (
+          <button
+            ref={dotsBtnRef}
+            onClick={openMenu}
+            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white/20 hover:text-white/60 hover:bg-white/8 transition-all duration-150"
+          >
+            <DotsThreeVertical size={15} weight="bold" />
+          </button>
+        )}
+      </div>
+
+      {/* Menu portal — renders outside any overflow:hidden ancestor */}
+      {isHost && menuOpen && createPortal(
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.15, ease: [0.32, 0.72, 0, 1] } }}
+            exit={{ opacity: 0, scale: 0.92, y: 6, transition: { duration: 0.1 } }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="fixed z-[300] w-48 rounded-2xl border border-white/10 p-1 shadow-[0_8px_48px_rgba(0,0,0,0.8)]"
+            style={{
+              background: "rgba(18,18,24,0.99)",
+              backdropFilter: "blur(24px)",
+              top: menuPos.top - 8,
+              right: menuPos.right,
+              transform: "translateY(-100%)",
+            }}
+          >
+            <button
+              onClick={() => { onSkipTo(item.id); setMenuOpen(false); }}
+              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-white/70 hover:text-white hover:bg-white/8 transition-all duration-150 text-left"
+            >
+              <Play size={13} weight="fill" className="text-violet-400" />
+              Play Now
+            </button>
+            <button
+              onClick={() => { onMoveToTop(item.id); setMenuOpen(false); }}
+              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-white/70 hover:text-white hover:bg-white/8 transition-all duration-150 text-left"
+            >
+              <ArrowFatLinesUp size={13} weight="fill" className="text-violet-400" />
+              Move to Top
+            </button>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
   );
 }
 
-// ─── Song Search Panel ────────────────────────────────────────────────────────
+// ─── Song Search Modal ────────────────────────────────────────────────────────
 
-function SearchPanel({ onAdd, onClose }: { onAdd: (track: Track) => void; onClose: () => void }) {
+function SearchModal({ onAdd, onClose }: { onAdd: (track: Track) => void; onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
@@ -243,10 +369,7 @@ function SearchPanel({ onAdd, onClose }: { onAdd: (track: Track) => void; onClos
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
-      try {
-        const tracks = await searchMusic(query);
-        setResults(tracks);
-      } catch { /* ignore */ }
+      try { setResults(await searchMusic(query)); } catch { /* ignore */ }
       setLoading(false);
     }, 400);
     return () => clearTimeout(debounceRef.current);
@@ -258,84 +381,112 @@ function SearchPanel({ onAdd, onClose }: { onAdd: (track: Track) => void; onClos
     setTimeout(() => setAdded(null), 2000);
   }
 
-  return (
+  return createPortal(
     <motion.div
-      initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] } }}
-      exit={{ opacity: 0, y: 20, filter: "blur(8px)", transition: { duration: 0.25 } }}
-      className="rounded-[2rem] border border-white/10 p-1.5"
-      style={{ background: "rgba(255,255,255,0.04)" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1, transition: { duration: 0.2 } }}
+      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="rounded-[calc(2rem-0.375rem)] p-5" style={{ background: "rgba(8,8,12,0.95)", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.05)" }}>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5" style={{ boxShadow: "inset 0 1px 2px rgba(0,0,0,0.3)" }}>
-            <MagnifyingGlass size={14} className="text-white/30 flex-shrink-0" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 24 }}
+        animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] } }}
+        exit={{ opacity: 0, scale: 0.94, y: 24, transition: { duration: 0.25 } }}
+        className="w-full max-w-lg rounded-[2rem] border border-white/10 p-1.5"
+        style={{ background: "rgba(255,255,255,0.04)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="rounded-[calc(2rem-0.375rem)] p-6" style={{ background: "rgba(10,10,14,0.98)", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.06)" }}>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.2em] font-medium text-white/40 mb-1">
+                Add Songs
+              </span>
+              <h3 className="text-xl font-bold tracking-tight">What's going in the queue?</h3>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-full bg-white/5 border border-white/8 flex items-center justify-center text-white/40 hover:text-white/70 hover:bg-white/8 transition-all duration-200"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Search input */}
+          <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-4 py-3 mb-4" style={{ boxShadow: "inset 0 1px 2px rgba(0,0,0,0.3)" }}>
+            <MagnifyingGlass size={15} className="text-white/30 flex-shrink-0" />
             <input
               autoFocus
               type="text"
-              placeholder="Search for a song..."
+              placeholder="Search artist, song or album..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="flex-1 bg-transparent text-sm text-white placeholder-white/25 focus:outline-none"
             />
             {loading && <span className="w-3.5 h-3.5 rounded-full border-2 border-white/20 border-t-white/60 animate-spin flex-shrink-0" />}
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/5 border border-white/8 flex items-center justify-center text-white/40 hover:text-white/70 hover:bg-white/8 transition-all duration-200">
-            <X size={14} />
-          </button>
-        </div>
 
-        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-          <AnimatePresence>
-            {results.map((track, i) => (
-              <motion.div
-                key={track.id}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0, transition: { delay: i * 0.04 } }}
-                className="flex items-center gap-3 rounded-xl p-2.5 hover:bg-white/5 transition-all duration-150 group cursor-pointer"
-                onClick={() => handleAdd(track)}
-              >
-                {track.albumArt ? (
-                  <img src={track.albumArt} alt={track.title} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                    <MusicNote size={14} className="text-white/20" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{track.title}</p>
-                  <p className="text-xs text-white/40 truncate">{track.artist}</p>
-                </div>
-                <div className="flex-shrink-0">
-                  {added === track.id ? (
-                    <Check size={16} className="text-green-400" />
+          {/* Results */}
+          <div className="space-y-1 max-h-72 overflow-y-auto pr-0.5">
+            <AnimatePresence>
+              {results.map((track, i) => (
+                <motion.div
+                  key={track.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0, transition: { delay: i * 0.035 } }}
+                  className="flex items-center gap-3 rounded-xl p-2.5 hover:bg-white/5 transition-all duration-150 group cursor-pointer"
+                  onClick={() => handleAdd(track)}
+                >
+                  {track.albumArt ? (
+                    <img src={track.albumArt} alt={track.title} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
                   ) : (
-                    <Plus size={16} className="text-white/20 group-hover:text-violet-400 transition-colors duration-150" />
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                      <MusicNote size={14} className="text-white/20" />
+                    </div>
                   )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          {!loading && query && results.length === 0 && (
-            <p className="text-center text-white/25 text-sm py-8">No results found</p>
-          )}
-          {!query && (
-            <p className="text-center text-white/20 text-sm py-8">Start typing to search</p>
-          )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{track.title}</p>
+                    <p className="text-xs text-white/40 truncate">{track.artist}</p>
+                  </div>
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-150 bg-white/0 group-hover:bg-violet-500/20">
+                    {added === track.id ? (
+                      <Check size={14} className="text-green-400" />
+                    ) : (
+                      <Plus size={14} className="text-white/25 group-hover:text-violet-400 transition-colors duration-150" />
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {!loading && query && results.length === 0 && (
+              <p className="text-center text-white/25 text-sm py-10">No results found</p>
+            )}
+            {!query && (
+              <div className="flex flex-col items-center gap-2 py-10">
+                <MagnifyingGlass size={24} className="text-white/15" />
+                <p className="text-center text-white/20 text-sm">Start typing to search</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </motion.div>,
+    document.body
   );
 }
 
 // ─── Lobby Screen ─────────────────────────────────────────────────────────────
 
 function LobbyScreen({
-  party, isHost, onStart,
+  party, isHost, onStart, onAddSong,
 }: {
   party: Party;
   isHost: boolean;
   onStart: () => void;
+  onAddSong: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const inviteUrl = `${window.location.origin}/join/${party.code}`;
@@ -410,22 +561,31 @@ function LobbyScreen({
         </div>
 
         {isHost ? (
-          <button
-            onClick={onStart}
-            disabled={party.queue.length === 0}
-            className="group w-full flex items-center justify-center gap-3 rounded-full bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-violet-500 active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.4)" }}
-          >
-            Start the Party
-            <span className="w-6 h-6 rounded-full bg-white/15 flex items-center justify-center transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-px">
-              <ArrowRight size={12} weight="bold" />
-            </span>
-          </button>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={onAddSong}
+              className="group w-full flex items-center justify-center gap-3 rounded-full border border-violet-500/30 bg-violet-600/15 px-6 py-3.5 text-sm font-semibold text-violet-300 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-violet-600/25 hover:text-white active:scale-[0.98]"
+            >
+              <Plus size={15} />
+              Add Songs {party.queue.length > 0 && <span className="ml-1 rounded-full bg-violet-500/30 px-2 py-0.5 text-[10px] text-violet-300">{party.queue.length} added</span>}
+            </button>
+            <button
+              onClick={onStart}
+              disabled={party.queue.length === 0}
+              className="group w-full flex items-center justify-center gap-3 rounded-full bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-violet-500 active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.4)" }}
+            >
+              Start the Party
+              <span className="w-6 h-6 rounded-full bg-white/15 flex items-center justify-center transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-px">
+                <ArrowRight size={12} weight="bold" />
+              </span>
+            </button>
+            {party.queue.length === 0 && (
+              <p className="text-center text-white/25 text-xs">Add at least one song to start</p>
+            )}
+          </div>
         ) : (
           <p className="text-center text-white/30 text-sm">Waiting for the host to start the party...</p>
-        )}
-        {isHost && party.queue.length === 0 && (
-          <p className="text-center text-white/25 text-xs mt-2">Add at least one song to start</p>
         )}
       </motion.div>
     </div>
@@ -442,12 +602,22 @@ export default function Party() {
   const [participantId] = useState(() => localStorage.getItem("participantId") || "");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentSongId, setCurrentSongId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isHostRef = useRef(false);
+  // Holds a song that arrived before the <audio> element was mounted
+  const pendingSongRef = useRef<QueueItem | null>(null);
 
   const isHost = party?.hostId === participantId;
+  isHostRef.current = isHost;
 
   const nowPlaying = party?.queue.find((q) => q.played && !party.queue.some((after) => after.position > q.position && after.played)) ?? null;
   const upcomingQueue = party?.queue.filter((q) => !q.played) ?? [];
+  // displayNow: prefer the actively-playing song (tracked by ID) so replays show correctly
+  const displayNow = (currentSongId ? (party?.queue.find((q) => q.id === currentSongId) ?? null) : null) ?? nowPlaying;
+  const playedQueue = party?.queue.filter((q) => q.played && q.id !== displayNow?.id).reverse() ?? [];
 
   const myVoteFor = useCallback((itemId: string) => {
     const item = party?.queue.find((q) => q.id === itemId);
@@ -467,8 +637,7 @@ export default function Party() {
       socket.emit("party:join", { partyId, participantId });
     }
 
-    import("../lib/api").then(({ getParty }) => {
-      getParty(code!).then((data: Party) => {
+    getParty(code!).then((data: Party) => {
         if (cancelled) return;
         setParty(data);
 
@@ -477,18 +646,35 @@ export default function Party() {
         });
 
         socket.on("song:play", (item: QueueItem) => {
+          setCurrentSongId(item.id);
+          setCurrentTime(0);
+          setDuration(0);
           if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.src = item.previewUrl || "";
-            if (item.previewUrl) {
-              audioRef.current.play().catch(() => {});
-              setIsPlaying(true);
-            }
+            playSong(item);
+          } else {
+            // Audio element not mounted yet (lobby→active transition race).
+            // Store it; the ref callback will drain it once the element mounts.
+            pendingSongRef.current = item;
           }
         });
 
         socket.on("party:ended", (results) => {
           navigate(`/results/${code}`, { state: { results } });
+        });
+
+        socket.on("playback:control", ({ action, time }: { action: string; time?: number }) => {
+          const audio = audioRef.current;
+          if (!audio) return;
+          if (action === "pause") {
+            audio.pause();
+            setIsPlaying(false);
+          } else if (action === "resume") {
+            audio.play().catch(() => {});
+            setIsPlaying(true);
+          } else if (action === "seek" && time !== undefined) {
+            audio.currentTime = time;
+            setCurrentTime(time);
+          }
         });
 
         if (socket.connected) {
@@ -499,7 +685,6 @@ export default function Party() {
           socket.connect();
         }
       }).catch(() => { if (!cancelled) navigate("/"); });
-    });
 
     return () => {
       cancelled = true;
@@ -507,6 +692,7 @@ export default function Party() {
       socket.off("party:state");
       socket.off("song:play");
       socket.off("party:ended");
+      socket.off("playback:control");
       socket.disconnect();
     };
   }, [code, participantId, navigate]);
@@ -536,14 +722,84 @@ export default function Party() {
     socket.emit("vote:cast", { partyId: party.id, participantId, queueItemId });
   }
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    if (!party) return;
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const ids = upcomingQueue.map((q) => q.id);
+    const oldIdx = ids.indexOf(active.id as string);
+    const newIdx = ids.indexOf(over.id as string);
+    const reordered = arrayMove(ids, oldIdx, newIdx);
+
+    socket.emit("queue:reorder", { partyId: party.id, participantId, orderedIds: reordered });
+  }
+
+  function handleMoveToTop(itemId: string) {
+    if (!party) return;
+    const ids = upcomingQueue.map((q) => q.id);
+    const idx = ids.indexOf(itemId);
+    if (idx <= 0) return;
+    const reordered = [itemId, ...ids.filter((id) => id !== itemId)];
+    socket.emit("queue:reorder", { partyId: party.id, participantId, orderedIds: reordered });
+  }
+
+  function playSong(item: QueueItem) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.src = item.previewUrl || "";
+    audio.currentTime = 0;
+    if (item.previewUrl) {
+      audio.load(); // ensure src is picked up before play()
+      audio.play().catch(() => setIsPlaying(false));
+      setIsPlaying(true);
+    }
+  }
+
+  // Ref callback: fires the moment the <audio> element mounts.
+  // If a song:play arrived before the element existed, play it now.
+  function setAudioRef(el: HTMLAudioElement | null) {
+    (audioRef as React.MutableRefObject<HTMLAudioElement | null>).current = el;
+    if (el && pendingSongRef.current) {
+      const item = pendingSongRef.current;
+      pendingSongRef.current = null;
+      playSong(item);
+    }
+  }
+
+  function handleSkipTo(queueItemId: string) {
+    if (!party) return;
+    socket.emit("song:skip-to", { partyId: party.id, participantId, queueItemId });
+  }
+
+  function handleReplay(queueItemId: string) {
+    if (!party) return;
+    socket.emit("song:replay", { partyId: party.id, participantId, queueItemId });
+  }
+
+  function handleSeek(time: number) {
+    if (!audioRef.current || !party) return;
+    audioRef.current.currentTime = time;
+    setCurrentTime(time);
+    // Broadcast to guests
+    socket.emit("playback:control", { partyId: party.id, participantId, action: "seek", time });
+  }
+
   function handlePlayPause() {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !party) return;
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
+      socket.emit("playback:control", { partyId: party.id, participantId, action: "pause" });
     } else {
-      audioRef.current.play().catch(() => {});
+      audioRef.current.play().catch(() => setIsPlaying(false));
       setIsPlaying(true);
+      socket.emit("playback:control", { partyId: party.id, participantId, action: "resume" });
     }
   }
 
@@ -561,35 +817,35 @@ export default function Party() {
   if (party.status === "lobby") {
     return (
       <>
-        <LobbyScreen party={party} isHost={isHost} onStart={handleStart} />
-        {/* Search panel accessible in lobby too */}
-        <div className="fixed bottom-6 right-6 z-50">
-          <AnimatePresence>
-            {showSearch && (
-              <div className="absolute bottom-16 right-0 w-96">
-                <SearchPanel onAdd={handleAddSong} onClose={() => setShowSearch(false)} />
-              </div>
-            )}
-          </AnimatePresence>
-          <motion.button
-            whileTap={{ scale: 0.92 }}
-            onClick={() => setShowSearch(!showSearch)}
-            className="w-12 h-12 rounded-full bg-violet-600 border border-violet-500/50 flex items-center justify-center text-white shadow-lg transition-all duration-300 hover:bg-violet-500"
-            style={{ boxShadow: "0 0 30px rgba(124, 58, 237, 0.4)" }}
-          >
-            {showSearch ? <X size={18} /> : <Plus size={18} />}
-          </motion.button>
-        </div>
+        <LobbyScreen
+          party={party}
+          isHost={isHost}
+          onStart={handleStart}
+          onAddSong={() => setShowSearch(true)}
+        />
+        <AnimatePresence>
+          {showSearch && <SearchModal onAdd={handleAddSong} onClose={() => setShowSearch(false)} />}
+        </AnimatePresence>
       </>
     );
   }
 
-  const displayNow = nowPlaying;
-
   return (
+    <>
     <div className="relative min-h-[100dvh] flex flex-col overflow-hidden">
-      {/* Hidden audio */}
-      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
+      {/* Hidden audio — uses ref callback so pending songs are drained the moment it mounts */}
+      <audio
+        ref={setAudioRef}
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
+        onLoadedMetadata={() => { setDuration(audioRef.current?.duration ?? 0); setCurrentTime(0); }}
+        onEnded={() => {
+          setIsPlaying(false);
+          setCurrentTime(0);
+          if (isHostRef.current) {
+            socket.emit("song:next", { partyId: party?.id, participantId });
+          }
+        }}
+      />
 
       {/* Background */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -635,10 +891,13 @@ export default function Party() {
             item={displayNow}
             isPlaying={isPlaying}
             onPlayPause={handlePlayPause}
-            isHost={isHost}
             myVote={displayNow ? myVoteFor(displayNow.id) : false}
             onVote={() => displayNow && handleVote(displayNow.id)}
             totalVoters={party.participants.length}
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={handleSeek}
+            isHost={isHost}
           />
           {/* Host next controls */}
           {isHost && (
@@ -674,35 +933,81 @@ export default function Party() {
             </button>
           </div>
 
-          <AnimatePresence>
-            {showSearch && (
-              <SearchPanel onAdd={handleAddSong} onClose={() => setShowSearch(false)} />
-            )}
-          </AnimatePresence>
-
           {upcomingQueue.length === 0 ? (
             <div className="rounded-2xl border border-white/6 bg-white/2 flex flex-col items-center justify-center py-12 gap-3">
               <MusicNote size={24} className="text-white/15" />
               <p className="text-white/25 text-sm text-center">Queue is empty<br /><span className="text-white/15 text-xs">Add songs to keep the party going</span></p>
             </div>
           ) : (
-            <div className="space-y-2 overflow-y-auto max-h-[60vh] pr-0.5">
-              <AnimatePresence>
-                {upcomingQueue.map((item, i) => (
-                  <QueueRow
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={upcomingQueue.map((q) => q.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2 overflow-y-auto max-h-[45vh] pr-0.5">
+                  {upcomingQueue.map((item) => (
+                    <QueueRow
+                      key={item.id}
+                      item={item}
+                      myVote={myVoteFor(item.id)}
+                      onVote={() => handleVote(item.id)}
+                      isHost={isHost}
+                      onMoveToTop={handleMoveToTop}
+                      onSkipTo={handleSkipTo}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+
+          {/* Played history */}
+          {playedQueue.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs text-white/20 uppercase tracking-widest font-medium flex items-center gap-1.5 mb-2">
+                <ClockCounterClockwise size={11} />
+                Played
+              </p>
+              <div className="space-y-1.5">
+                {playedQueue.map((item) => (
+                  <div
                     key={item.id}
-                    item={item}
-                    index={i}
-                    myVote={myVoteFor(item.id)}
-                    onVote={() => handleVote(item.id)}
-                    isCurrentlyPlaying={false}
-                  />
+                    onClick={() => handleReplay(item.id)}
+                    className={`flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 group cursor-pointer ${
+                      displayNow?.id === item.id
+                        ? "border-violet-500/30 bg-violet-500/8 opacity-100"
+                        : "border-white/4 bg-white/2 opacity-60 hover:opacity-100 hover:border-white/10"
+                    }`}
+                  >
+                    {item.albumArt ? (
+                      <img src={item.albumArt} alt={item.title} className="w-9 h-9 rounded-xl object-cover flex-shrink-0 grayscale group-hover:grayscale-0 transition-all duration-300" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                        <MusicNote size={14} className="text-white/20" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate text-white/60">{item.title}</p>
+                      <p className="text-[10px] text-white/30 truncate">{item.artist}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <span className="flex items-center gap-1 text-[10px] text-white/25">
+                        <Fire size={10} weight="fill" className="text-orange-400/40" />
+                        {item.votes.length}
+                      </span>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 group-hover:text-violet-400 transition-colors duration-150">
+                        <ClockCounterClockwise size={13} />
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </AnimatePresence>
+              </div>
             </div>
           )}
         </div>
       </div>
     </div>
+    {/* Search modal — portal renders outside the party layout */}
+    <AnimatePresence>
+      {showSearch && <SearchModal onAdd={handleAddSong} onClose={() => setShowSearch(false)} />}
+    </AnimatePresence>
+    </>
   );
 }

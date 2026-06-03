@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
+import path from "path";
 import { env } from "./env.js";
 import { prisma } from "./lib/prisma.js";
 
@@ -9,14 +10,16 @@ const app = express();
 const server = createServer(app);
 
 const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
-  },
+  cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
 app.use(cors());
 app.use(express.json());
+
+// Resolve frontend/dist relative to this file's location (backend/src → ../../frontend/dist)
+const frontendDist = path.resolve(__dirname, "../../frontend/dist");
+app.use(express.static(frontendDist));
+app.use(express.static(frontendDist));
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -282,6 +285,70 @@ io.on("connection", (socket) => {
     io.to(partyId).emit("party:state", state);
   });
 
+  // Replay any already-played song — host only, broadcasts to entire room
+  socket.on("song:replay", async ({ partyId, participantId, queueItemId }: { partyId: string; participantId: string; queueItemId: string }) => {
+    const party = await prisma.party.findUnique({ where: { id: partyId } });
+    if (!party || party.hostId !== participantId) return;
+    const item = await prisma.queueItem.findUnique({ where: { id: queueItemId } });
+    if (!item || item.partyId !== partyId) return;
+    io.to(partyId).emit("song:play", item);
+  });
+
+  // Host playback control (pause / resume / seek) — broadcasts to everyone except sender
+  socket.on("playback:control", ({ partyId, participantId, action, time }: { partyId: string; participantId: string; action: string; time?: number }) => {
+    // Fire-and-forget: verify host asynchronously but don't await (low latency matters here)
+    prisma.party.findUnique({ where: { id: partyId } }).then((party) => {
+      if (!party || party.hostId !== participantId) return;
+      socket.broadcast.to(partyId).emit("playback:control", { action, time });
+    });
+  });
+
+  // Skip directly to a specific song (host only)
+  socket.on("song:skip-to", async ({ partyId, participantId, queueItemId }: { partyId: string; participantId: string; queueItemId: string }) => {
+    const party = await prisma.party.findUnique({ where: { id: partyId } });
+    if (!party || party.hostId !== participantId) return;
+
+    // Mark everything up to and including this item as played
+    const target = await prisma.queueItem.findUnique({ where: { id: queueItemId } });
+    if (!target || target.played) return;
+
+    await prisma.queueItem.updateMany({
+      where: { partyId, played: false, position: { lte: target.position } },
+      data: { played: true, playedAt: new Date() },
+    });
+
+    const state = await getPartyState(partyId);
+    if (!state) return;
+    io.to(partyId).emit("party:state", state);
+    io.to(partyId).emit("song:play", target);
+  });
+
+  // Reorder queue (host only) — accepts full ordered array of unplayed item IDs
+  socket.on("queue:reorder", async ({ partyId, participantId, orderedIds }: { partyId: string; participantId: string; orderedIds: string[] }) => {
+    const party = await prisma.party.findUnique({ where: { id: partyId } });
+    if (!party || party.hostId !== participantId) return;
+
+    // Get current max played position so we don't collide with played items
+    const playedMax = await prisma.queueItem.aggregate({
+      where: { partyId, played: true },
+      _max: { position: true },
+    });
+    const offset = (playedMax._max.position ?? -1) + 1;
+
+    await prisma.$transaction(
+      orderedIds.map((id, idx) =>
+        prisma.queueItem.update({
+          where: { id },
+          data: { position: offset + idx },
+        })
+      )
+    );
+
+    const state = await getPartyState(partyId);
+    if (!state) return;
+    io.to(partyId).emit("party:state", state);
+  });
+
   // End party (host only)
   socket.on("party:end", async ({ partyId, participantId }) => {
     const party = await prisma.party.findUnique({ where: { id: partyId } });
@@ -316,6 +383,14 @@ async function buildResults(partyId: string) {
 
   return ranked;
 }
+
+// Catch-all: serve React app for any non-API route
+app.get("*", (_req, res) => {
+  const indexPath = path.join(frontendDist, "index.html");
+  res.sendFile(indexPath, (err) => {
+    if (err) res.status(404).send("Frontend not built. Run: npm run build");
+  });
+});
 
 server.listen(env.PORT, () => {
   console.log(`🎵 Nero Party server running on http://localhost:${env.PORT}`);

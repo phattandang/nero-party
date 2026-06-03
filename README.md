@@ -1,5 +1,7 @@
 # Nero Party
 
+> **Sharing with others?** Jump to [Sharing the App](#sharing-the-app) below.
+
 A real-time music listening party app. Create a party, invite friends, add songs to a shared queue, listen together, vote with fire reactions, and crown the winning song.
 
 ## Quick Start
@@ -73,6 +75,60 @@ nero-party/
             ├── socket.ts       # Socket.IO client
             └── types.ts        # Shared TypeScript types
 ```
+
+## Sharing the App
+
+There are two ways to let others join from outside your machine.
+
+### Option A — Same Wi-Fi (LAN)
+
+Everyone must be on the same network (home/office Wi-Fi).
+
+```bash
+# 1. Build the frontend
+npm run build
+
+# 2. Find your local IP on Windows
+ipconfig
+# Look for: IPv4 Address . . . . . . : 192.168.x.x
+
+# 3. Start the backend (it now serves the built frontend too)
+npm run start
+```
+
+Share `http://192.168.x.x:3000` — anyone on the same network can open it.
+
+---
+
+### Option B — Internet (anywhere in the world) via ngrok
+
+ngrok creates a public HTTPS tunnel to your local server in one command.
+
+```bash
+# 1. Build the frontend
+npm run build
+
+# 2. Start backend + open ngrok tunnel in one command
+npm run share
+```
+
+ngrok will print something like:
+```
+Forwarding  https://abc123.ngrok-free.app → http://localhost:3000
+```
+
+Share that `https://abc123.ngrok-free.app` URL with anyone. They can join from their phone, laptop, anywhere.
+
+> **Note:** The free ngrok tier restarts with a new URL each session. Sign up at ngrok.com for a stable URL.
+
+---
+
+### How it works (why this wasn't possible before)
+
+Previously the frontend had `localhost:3000` hardcoded — anyone else's browser would try connecting to *their own* machine. Now:
+
+- **Dev mode** (`npm run dev`): Vite proxies `/api` and `/socket.io` → `localhost:3000`. Works exactly as before.
+- **Production** (`npm run build` + `npm run start`): Express serves the built frontend on port 3000. All API and socket calls use relative paths (same origin). Expose that single port with ngrok and the full app — frontend + backend + real-time — flows through the tunnel.
 
 ## Design Notes
 
