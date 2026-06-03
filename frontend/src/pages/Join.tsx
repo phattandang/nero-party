@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowRight, Hash } from "@phosphor-icons/react";
@@ -35,7 +35,7 @@ export default function Join() {
     <div className="relative min-h-[100dvh] flex flex-col items-center justify-center px-4 overflow-hidden">
       {/* Background orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="glow-pulse absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-violet-600/8 blur-[120px]" />
+        <div className="glow-pulse absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-[#FF9700]/8 blur-[120px]" />
         <div className="glow-pulse absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-fuchsia-500/6 blur-[100px]" style={{ animationDelay: "1s" }} />
       </div>
 
@@ -73,7 +73,7 @@ export default function Join() {
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   maxLength={6}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200 font-mono tracking-widest uppercase"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-[#e07600]/50 focus:border-[#e07600]/50 transition-all duration-200 font-mono tracking-widest uppercase"
                   style={{ boxShadow: "inset 0 1px 2px rgba(0,0,0,0.3)" }}
                 />
               </div>
@@ -84,7 +84,7 @@ export default function Join() {
                   placeholder="Your display name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-[#e07600]/50 focus:border-[#e07600]/50 transition-all duration-200"
                   style={{ boxShadow: "inset 0 1px 2px rgba(0,0,0,0.3)" }}
                 />
               </div>
@@ -94,8 +94,8 @@ export default function Join() {
               <button
                 onClick={handleJoin}
                 disabled={loading}
-                className="group w-full flex items-center justify-center gap-3 rounded-full bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-violet-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-                style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.35)" }}
+                className="group w-full flex items-center justify-center gap-3 rounded-full bg-[#FF9700] px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#e07600] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                style={{ boxShadow: "0 0 40px rgba(255, 151, 0, 0.35)" }}
               >
                 {loading ? (
                   <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />

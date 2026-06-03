@@ -1,46 +1,84 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Crown, Fire, MusicNote, Trophy, ArrowRight } from "@phosphor-icons/react";
 import type { RankedItem } from "../lib/types";
 
-// ─── Confetti particle ────────────────────────────────────────────────────────
+// ─── Confetti ────────────────────────────────────────────────────────────────
 
-function ConfettiPiece({ delay, x, color }: { delay: number; x: number; color: string }) {
+const CONFETTI_COLORS = [
+  "#FF9700", "#FFB340", "#FF6B00", // tangerine family
+  "#FF3D71", "#FF1493",            // hot pink / rose
+  "#00E5FF", "#00B4D8",            // electric cyan
+  "#7FFF00", "#39FF14",            // neon lime
+  "#FFE600", "#FFD700",            // electric yellow / gold
+  "#BF5FFF", "#9B59B6",            // vibrant purple accent
+  "#FF4500", "#FF6347",            // red-orange
+  "#00FF7F", "#2ECC71",            // spring green
+];
+
+type Shape = "square" | "rect" | "circle" | "strip";
+
+interface PieceConfig {
+  id: number;
+  x: number;
+  color: string;
+  shape: Shape;
+  delay: number;
+  duration: number;
+  drift: number;      // horizontal drift in px
+  spin: number;       // total rotation deg
+  size: number;       // base size in px
+}
+
+function rnd(min: number, max: number) { return min + Math.random() * (max - min); }
+function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function makePieces(count: number): PieceConfig[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i,
+    x: rnd(0, 100),
+    color: pick(CONFETTI_COLORS),
+    shape: pick<Shape>(["square", "rect", "circle", "strip"]),
+    delay: rnd(0, 2.4),
+    duration: rnd(2.5, 5),
+    drift: rnd(-220, 220),
+    spin: (Math.random() > 0.5 ? 1 : -1) * rnd(360, 1080),
+    size: rnd(6, 14),
+  }));
+}
+
+function ConfettiPiece({ p }: { p: PieceConfig }) {
+  const w = p.shape === "strip" ? p.size * 0.4 : p.shape === "rect" ? p.size * 0.6 : p.size;
+  const h = p.shape === "strip" ? p.size * 2.5 : p.size;
+
   return (
     <motion.div
-      className="fixed pointer-events-none w-2 h-2 rounded-sm"
-      style={{ left: `${x}%`, top: -8, background: color, zIndex: 100 }}
-      initial={{ y: 0, rotate: 0, opacity: 1 }}
+      className="fixed pointer-events-none"
+      // Start well above the viewport so no flash is possible before animation fires
+      style={{ left: `${p.x}%`, top: -120, zIndex: 100, width: w, height: h,
+        borderRadius: p.shape === "circle" ? "50%" : p.shape === "square" ? "2px" : "1px",
+        background: p.color, boxShadow: `0 0 ${p.size}px ${p.color}55` }}
+      initial={{ y: 0, x: 0, rotate: 0, opacity: 0 }}
       animate={{
-        y: window.innerHeight + 20,
-        rotate: 720 + Math.random() * 360,
-        opacity: [1, 1, 1, 0],
-        x: (Math.random() - 0.5) * 200,
+        y: window.innerHeight + 160,
+        x: p.drift,
+        rotate: p.spin,
+        opacity: [0, 0, 1, 1, 0.8, 0],
       }}
-      transition={{ duration: 3 + Math.random() * 2, delay, ease: "linear" }}
+      transition={{ duration: p.duration, delay: p.delay, ease: [0.25, 0.46, 0.45, 0.94] }}
     />
   );
 }
 
 function Confetti({ active }: { active: boolean }) {
-  const pieces = useRef(
-    Array.from({ length: 60 }, (_, i) => ({
-      id: i,
-      delay: Math.random() * 2,
-      x: Math.random() * 100,
-      color: ["#a78bfa", "#f59e0b", "#f472b6", "#34d399", "#60a5fa", "#fb923c"][Math.floor(Math.random() * 6)],
-    }))
-  );
+  // Two waves: immediate burst + delayed cascade
+  const wave1 = useRef(makePieces(80));
+  const wave2 = useRef(makePieces(50).map((p) => ({ ...p, id: p.id + 200, delay: p.delay + 1.8 })));
+  const all = [...wave1.current, ...wave2.current];
 
   if (!active) return null;
-  return (
-    <>
-      {pieces.current.map((p) => (
-        <ConfettiPiece key={p.id} delay={p.delay} x={p.x} color={p.color} />
-      ))}
-    </>
-  );
+  return <>{all.map((p) => <ConfettiPiece key={p.id} p={p} />)}</>;
 }
 
 // ─── Winner Card ──────────────────────────────────────────────────────────────
@@ -64,10 +102,10 @@ function WinnerCard({ item }: { item: RankedItem }) {
       </motion.div>
 
       {/* Card glow */}
-      <div className="absolute inset-0 rounded-[2rem] blur-2xl opacity-40" style={{ background: "linear-gradient(135deg, #7c3aed, #f59e0b)" }} />
+      <div className="absolute inset-0 rounded-[2rem] blur-2xl opacity-40" style={{ background: "linear-gradient(135deg, #c96500, #f59e0b)" }} />
 
       {/* Outer shell */}
-      <div className="relative rounded-[2rem] p-[2px]" style={{ background: "linear-gradient(135deg, #a78bfa, #f59e0b)" }}>
+      <div className="relative rounded-[2rem] p-[2px]" style={{ background: "linear-gradient(135deg, #FF9700, #f59e0b)" }}>
         <div className="rounded-[calc(2rem-2px)] overflow-hidden" style={{ background: "rgba(8,8,12,0.95)" }}>
           {/* Album art background */}
           {item.albumArt && (
@@ -78,7 +116,7 @@ function WinnerCard({ item }: { item: RankedItem }) {
           )}
           <div className="relative z-10 p-8 pt-10 text-center">
             {item.albumArt ? (
-              <div className="mx-auto w-32 h-32 rounded-[1.5rem] border-2 border-white/20 overflow-hidden mb-6 shadow-[0_0_40px_rgba(167,139,250,0.3)]">
+              <div className="mx-auto w-32 h-32 rounded-[1.5rem] border-2 border-white/20 overflow-hidden mb-6 shadow-[0_0_40px_rgba(255,151,0,0.25)]">
                 <img src={item.albumArt} alt={item.title} className="w-full h-full object-cover" />
               </div>
             ) : (
@@ -156,7 +194,7 @@ export default function Results() {
       <div className="min-h-[100dvh] flex items-center justify-center px-4">
         <div className="text-center">
           <p className="text-white/30 mb-4">No results available</p>
-          <button onClick={() => navigate("/")} className="text-violet-400 text-sm hover:text-violet-300 transition-colors">
+          <button onClick={() => navigate("/")} className="text-[#ffb340] text-sm hover:text-[#ffd080] transition-colors">
             Back to home
           </button>
         </div>
@@ -171,8 +209,8 @@ export default function Results() {
 
       {/* Background */}
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.15) 0%, transparent 60%)" }} />
-        <div className="glow-pulse absolute top-1/3 left-1/4 w-[600px] h-[600px] rounded-full bg-violet-600/6 blur-[120px]" />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(255,151,0,0.12) 0%, transparent 60%)" }} />
+        <div className="glow-pulse absolute top-1/3 left-1/4 w-[600px] h-[600px] rounded-full bg-[#FF9700]/6 blur-[120px]" />
         <div className="glow-pulse absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-yellow-500/5 blur-[100px]" style={{ animationDelay: "1s" }} />
       </div>
 
@@ -235,8 +273,8 @@ export default function Results() {
           >
             <button
               onClick={() => navigate("/")}
-              className="group flex items-center gap-3 rounded-full bg-violet-600 px-8 py-4 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-violet-500 active:scale-[0.98]"
-              style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.4)" }}
+              className="group flex items-center gap-3 rounded-full bg-[#FF9700] px-8 py-4 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#e07600] active:scale-[0.98]"
+              style={{ boxShadow: "0 0 40px rgba(255, 151, 0, 0.4)" }}
             >
               Throw Another Party
               <span className="w-6 h-6 rounded-full bg-white/15 flex items-center justify-center transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-px">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { MusicNote, Users, Timer, ArrowRight, Sparkle } from "@phosphor-icons/react";
@@ -54,9 +54,9 @@ export default function Home() {
     <div className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden px-4">
       {/* Ambient background orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="glow-pulse absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-violet-600/10 blur-[120px]" />
-        <div className="glow-pulse absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-purple-500/8 blur-[100px]" style={{ animationDelay: "1.5s" }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-violet-900/5 blur-[160px]" />
+        <div className="glow-pulse absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-[#FF9700]/10 blur-[120px]" />
+        <div className="glow-pulse absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[#e07600]/8 blur-[100px]" style={{ animationDelay: "1.5s" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-orange-900/5 blur-[160px]" />
       </div>
 
       {step === "hero" ? (
@@ -74,14 +74,14 @@ export default function Home() {
                 <div
                   className="w-full h-full rounded-[calc(2rem-0.375rem)] flex items-center justify-center"
                   style={{
-                    background: "linear-gradient(135deg, #7c3aed22, #a78bfa11)",
+                    background: "linear-gradient(135deg, #c9650022, #FF970011)",
                     boxShadow: "inset 0 1px 1px rgba(255,255,255,0.15)",
                   }}
                 >
                   <MusicNote weight="fill" className="text-accent" size={36} />
                 </div>
               </div>
-              <div className="absolute -inset-3 rounded-[2.5rem] bg-violet-500/10 blur-xl" />
+              <div className="absolute -inset-3 rounded-[2.5rem] bg-[#e07600]/10 blur-xl" />
             </div>
           </motion.div>
 
@@ -103,7 +103,7 @@ export default function Home() {
             <span
               className="italic"
               style={{
-                background: "linear-gradient(135deg, #a78bfa, #7c3aed)",
+                background: "linear-gradient(135deg, #FF9700, #c96500)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
               }}
@@ -124,8 +124,8 @@ export default function Home() {
           <motion.div custom={4} variants={FADE_UP} className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
             <button
               onClick={() => setStep("create")}
-              className="group relative flex-1 flex items-center justify-center gap-3 rounded-full bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-violet-500 active:scale-[0.98]"
-              style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.4)" }}
+              className="group relative flex-1 flex items-center justify-center gap-3 rounded-full bg-[#FF9700] px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#e07600] active:scale-[0.98]"
+              style={{ boxShadow: "0 0 40px rgba(255, 151, 0, 0.4)" }}
             >
               Create a Party
               <span className="w-6 h-6 rounded-full bg-white/15 flex items-center justify-center transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-px">
@@ -195,7 +195,7 @@ export default function Home() {
                     placeholder="Friday Night Vibes"
                     value={form.partyName}
                     onChange={(e) => setForm({ ...form, partyName: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-[#e07600]/50 focus:border-[#e07600]/50 transition-all duration-200"
                     style={{ boxShadow: "inset 0 1px 2px rgba(0,0,0,0.3)" }}
                   />
                 </div>
@@ -206,7 +206,7 @@ export default function Home() {
                     placeholder="DJ Nero"
                     value={form.hostName}
                     onChange={(e) => setForm({ ...form, hostName: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-[#e07600]/50 focus:border-[#e07600]/50 transition-all duration-200"
                     style={{ boxShadow: "inset 0 1px 2px rgba(0,0,0,0.3)" }}
                   />
                 </div>
@@ -221,7 +221,7 @@ export default function Home() {
                     <select
                       value={form.maxSongs}
                       onChange={(e) => setForm({ ...form, maxSongs: Number(e.target.value) })}
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all duration-200"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#e07600]/50 transition-all duration-200"
                     >
                       {[10, 20, 30, 50].map((n) => <option key={n} value={n} className="bg-neutral-900">{n} songs</option>)}
                     </select>
@@ -234,7 +234,7 @@ export default function Home() {
                     <select
                       value={form.maxDuration}
                       onChange={(e) => setForm({ ...form, maxDuration: Number(e.target.value) })}
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all duration-200"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#e07600]/50 transition-all duration-200"
                     >
                       {[30, 60, 90, 120].map((n) => <option key={n} value={n} className="bg-neutral-900">{n} min</option>)}
                     </select>
@@ -248,8 +248,8 @@ export default function Home() {
                 <button
                   onClick={handleCreate}
                   disabled={loading}
-                  className="group w-full flex items-center justify-center gap-3 rounded-full bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-violet-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-                  style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.35)" }}
+                  className="group w-full flex items-center justify-center gap-3 rounded-full bg-[#FF9700] px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#e07600] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                  style={{ boxShadow: "0 0 40px rgba(255, 151, 0, 0.35)" }}
                 >
                   {loading ? (
                     <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />

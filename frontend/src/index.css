@@ -1,11 +1,11 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --accent: #a78bfa;
-  --accent-bright: #7c3aed;
-  --accent-glow: rgba(167, 139, 250, 0.15);
+  --accent: #FF9700;
+  --accent-bright: #c96500;
+  --accent-glow: rgba(255, 183, 64, 0.15);
 }
 
 * {
@@ -32,7 +32,7 @@ body::before {
 }
 
 ::selection {
-  background: rgba(167, 139, 250, 0.3);
+  background: rgba(255, 183, 64, 0.3);
   color: #fff;
 }
 

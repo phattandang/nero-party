@@ -7,8 +7,8 @@ export default {
         sans: ['"Plus Jakarta Sans"', "system-ui", "sans-serif"],
       },
       colors: {
-        accent: "#a78bfa",
-        "accent-bright": "#7c3aed",
+        accent: "#FF9700",
+        "accent-bright": "#c96500",
       },
       keyframes: {
         "fade-up": {

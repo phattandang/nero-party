@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+﻿import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
@@ -27,7 +27,7 @@ function Waveform({ playing }: { playing: boolean }) {
       {[1, 2, 3, 4, 5].map((i) => (
         <div
           key={i}
-          className={`w-[3px] rounded-full bg-violet-400 ${playing ? "wave-bar" : ""}`}
+          className={`w-[3px] rounded-full bg-[#ffb340] ${playing ? "wave-bar" : ""}`}
           style={{ height: playing ? "100%" : "30%", transition: "height 0.3s", opacity: playing ? 1 : 0.3 }}
         />
       ))}
@@ -110,11 +110,11 @@ function NowPlayingCard({
       key={item.id}
       initial={{ opacity: 0, scale: 0.95, filter: "blur(8px)" }}
       animate={{ opacity: 1, scale: 1, filter: "blur(0px)", transition: { duration: 0.6, ease: [0.32, 0.72, 0, 1] } }}
-      className="rounded-[2rem] border border-white/10 p-1.5 flex-1"
+      className="rounded-[2rem] border border-white/10 p-1.5 flex-1 flex flex-col"
       style={{ background: "rgba(255,255,255,0.04)" }}
     >
       <div
-        className="rounded-[calc(2rem-0.375rem)] overflow-hidden relative"
+        className="rounded-[calc(2rem-0.375rem)] overflow-hidden relative h-full flex flex-col"
         style={{ background: "rgba(8,8,12,0.9)", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.06)" }}
       >
         {item.albumArt && (
@@ -123,7 +123,7 @@ function NowPlayingCard({
             style={{ backgroundImage: `url(${item.albumArt})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(40px) saturate(1.5)" }}
           />
         )}
-        <div className="relative z-10 p-8">
+        <div className="relative z-10 p-8 flex flex-col flex-1">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
@@ -159,13 +159,15 @@ function NowPlayingCard({
                 </button>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-[10px] text-white/25 font-medium">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? "bg-violet-400 animate-pulse" : "bg-white/20"}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? "bg-[#ffb340] animate-pulse" : "bg-white/20"}`} />
                   {isPlaying ? "Synced with host" : "Paused by host"}
                 </span>
               )}
             </div>
           </div>
 
+          {/* Progress bar + vote pushed to bottom */}
+          <div className="mt-auto">
           {/* Progress bar — interactive for host, read-only for guests */}
           <div className="mb-5">
             <div className="relative">
@@ -179,7 +181,7 @@ function NowPlayingCard({
                 disabled={!isHost}
                 className={`w-full h-1 rounded-full appearance-none ${isHost ? "cursor-pointer" : "cursor-default"}`}
                 style={{
-                  background: `linear-gradient(to right, #a78bfa ${progress}%, rgba(255,255,255,0.1) ${progress}%)`,
+                  background: `linear-gradient(to right, #FF9700 ${progress}%, rgba(255,255,255,0.1) ${progress}%)`,
                   outline: "none",
                 }}
               />
@@ -206,6 +208,7 @@ function NowPlayingCard({
               {totalVoters > 0 && <span className="text-[10px] opacity-50">/ {totalVoters}</span>}
             </motion.button>
           </div>
+          </div>{/* end mt-auto wrapper */}
         </div>
       </div>
     </motion.div>
@@ -263,8 +266,8 @@ function QueueRow({
         onClick={() => !isDragging && onSkipTo(item.id)}
         className={`group flex items-center gap-3 rounded-2xl border p-3 transition-colors duration-200 cursor-pointer ${
           isDragging
-            ? "border-violet-500/40 bg-violet-500/10 shadow-[0_8px_32px_rgba(124,58,237,0.2)]"
-            : "border-white/6 bg-white/3 hover:bg-white/5 hover:border-violet-500/20"
+            ? "border-[#e07600]/40 bg-[#e07600]/10 shadow-[0_8px_32px_rgba(124,58,237,0.2)]"
+            : "border-white/6 bg-white/3 hover:bg-white/5 hover:border-[#e07600]/20"
         }`}
       >
         {/* Drag handle — host only, stops propagation so row click doesn't fire */}
@@ -337,14 +340,14 @@ function QueueRow({
               onClick={() => { onSkipTo(item.id); setMenuOpen(false); }}
               className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-white/70 hover:text-white hover:bg-white/8 transition-all duration-150 text-left"
             >
-              <Play size={13} weight="fill" className="text-violet-400" />
+              <Play size={13} weight="fill" className="text-[#ffb340]" />
               Play Now
             </button>
             <button
               onClick={() => { onMoveToTop(item.id); setMenuOpen(false); }}
               className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-white/70 hover:text-white hover:bg-white/8 transition-all duration-150 text-left"
             >
-              <ArrowFatLinesUp size={13} weight="fill" className="text-violet-400" />
+              <ArrowFatLinesUp size={13} weight="fill" className="text-[#ffb340]" />
               Move to Top
             </button>
           </motion.div>
@@ -451,11 +454,11 @@ function SearchModal({ onAdd, onClose }: { onAdd: (track: Track) => void; onClos
                     <p className="text-sm font-semibold truncate">{track.title}</p>
                     <p className="text-xs text-white/40 truncate">{track.artist}</p>
                   </div>
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-150 bg-white/0 group-hover:bg-violet-500/20">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-150 bg-white/0 group-hover:bg-[#e07600]/20">
                     {added === track.id ? (
                       <Check size={14} className="text-green-400" />
                     ) : (
-                      <Plus size={14} className="text-white/25 group-hover:text-violet-400 transition-colors duration-150" />
+                      <Plus size={14} className="text-white/25 group-hover:text-[#ffb340] transition-colors duration-150" />
                     )}
                   </div>
                 </motion.div>
@@ -500,8 +503,8 @@ function LobbyScreen({
   return (
     <div className="relative min-h-[100dvh] flex flex-col items-center justify-center px-4 overflow-hidden">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="glow-pulse absolute top-1/3 left-1/4 w-[500px] h-[500px] rounded-full bg-violet-600/8 blur-[120px]" />
-        <div className="glow-pulse absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-purple-500/6 blur-[100px]" style={{ animationDelay: "1.5s" }} />
+        <div className="glow-pulse absolute top-1/3 left-1/4 w-[500px] h-[500px] rounded-full bg-[#FF9700]/8 blur-[120px]" />
+        <div className="glow-pulse absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-[#e07600]/6 blur-[100px]" style={{ animationDelay: "1.5s" }} />
       </div>
 
       <motion.div
@@ -522,7 +525,7 @@ function LobbyScreen({
           <div className="rounded-[calc(2rem-0.375rem)] p-6" style={{ background: "rgba(8,8,12,0.9)", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.06)" }}>
             <p className="text-xs text-white/30 uppercase tracking-wider mb-3 font-medium">Party Code</p>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-5xl font-extrabold tracking-widest font-mono" style={{ background: "linear-gradient(135deg, #a78bfa, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              <span className="text-5xl font-extrabold tracking-widest font-mono" style={{ background: "linear-gradient(135deg, #FF9700, #c96500)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                 {party.code}
               </span>
               <button
@@ -564,16 +567,16 @@ function LobbyScreen({
           <div className="flex flex-col gap-3">
             <button
               onClick={onAddSong}
-              className="group w-full flex items-center justify-center gap-3 rounded-full border border-violet-500/30 bg-violet-600/15 px-6 py-3.5 text-sm font-semibold text-violet-300 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-violet-600/25 hover:text-white active:scale-[0.98]"
+              className="group w-full flex items-center justify-center gap-3 rounded-full border border-[#e07600]/30 bg-[#FF9700]/15 px-6 py-3.5 text-sm font-semibold text-[#ffd080] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#FF9700]/25 hover:text-white active:scale-[0.98]"
             >
               <Plus size={15} />
-              Add Songs {party.queue.length > 0 && <span className="ml-1 rounded-full bg-violet-500/30 px-2 py-0.5 text-[10px] text-violet-300">{party.queue.length} added</span>}
+              Add Songs {party.queue.length > 0 && <span className="ml-1 rounded-full bg-[#e07600]/30 px-2 py-0.5 text-[10px] text-[#ffd080]">{party.queue.length} added</span>}
             </button>
             <button
               onClick={onStart}
               disabled={party.queue.length === 0}
-              className="group w-full flex items-center justify-center gap-3 rounded-full bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-violet-500 active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ boxShadow: "0 0 40px rgba(124, 58, 237, 0.4)" }}
+              className="group w-full flex items-center justify-center gap-3 rounded-full bg-[#FF9700] px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#e07600] active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ boxShadow: "0 0 40px rgba(255, 151, 0, 0.4)" }}
             >
               Start the Party
               <span className="w-6 h-6 rounded-full bg-white/15 flex items-center justify-center transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-px">
@@ -807,7 +810,7 @@ export default function Party() {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-violet-500/30 border-t-violet-500 animate-spin" />
+          <div className="w-10 h-10 rounded-full border-2 border-[#e07600]/30 border-t-[#e07600] animate-spin" />
           <p className="text-white/30 text-sm">Loading party...</p>
         </div>
       </div>
@@ -856,8 +859,8 @@ export default function Party() {
           />
         )}
         <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(5,5,5,0.7), rgba(5,5,5,0.95))" }} />
-        <div className="glow-pulse absolute -top-20 left-1/4 w-[500px] h-[500px] rounded-full bg-violet-600/6 blur-[120px]" />
-        <div className="glow-pulse absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[100px]" style={{ animationDelay: "2s" }} />
+        <div className="glow-pulse absolute -top-20 left-1/4 w-[500px] h-[500px] rounded-full bg-[#FF9700]/6 blur-[120px]" />
+        <div className="glow-pulse absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-[#e07600]/5 blur-[100px]" style={{ animationDelay: "2s" }} />
       </div>
 
       {/* Top bar */}
@@ -926,7 +929,7 @@ export default function Party() {
             </div>
             <button
               onClick={() => setShowSearch(!showSearch)}
-              className="group flex items-center gap-2 rounded-full bg-violet-600/20 border border-violet-500/30 px-3 py-1.5 text-xs font-semibold text-violet-300 hover:bg-violet-600/30 transition-all duration-200"
+              className="group flex items-center gap-2 rounded-full bg-[#FF9700]/20 border border-[#e07600]/30 px-3 py-1.5 text-xs font-semibold text-[#ffd080] hover:bg-[#FF9700]/30 transition-all duration-200"
             >
               <Plus size={12} />
               Add Song
@@ -972,7 +975,7 @@ export default function Party() {
                     onClick={() => handleReplay(item.id)}
                     className={`flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 group cursor-pointer ${
                       displayNow?.id === item.id
-                        ? "border-violet-500/30 bg-violet-500/8 opacity-100"
+                        ? "border-[#e07600]/30 bg-[#e07600]/8 opacity-100"
                         : "border-white/4 bg-white/2 opacity-60 hover:opacity-100 hover:border-white/10"
                     }`}
                   >
@@ -992,7 +995,7 @@ export default function Party() {
                         <Fire size={10} weight="fill" className="text-orange-400/40" />
                         {item.votes.length}
                       </span>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 group-hover:text-violet-400 transition-colors duration-150">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 group-hover:text-[#ffb340] transition-colors duration-150">
                         <ClockCounterClockwise size={13} />
                       </div>
                     </div>
