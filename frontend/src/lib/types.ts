@@ -32,6 +32,7 @@ export interface QueueItem {
   addedByName: string;
   position: number;
   played: boolean;
+  skipped: boolean;
   playedAt?: string;
   votes: Vote[];
   replayRequests: ReplayRequest[];

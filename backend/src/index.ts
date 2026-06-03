@@ -239,10 +239,26 @@ io.on("connection", (socket) => {
     io.to(partyId).emit("queue:added", item);
   });
 
-  // Next song (host only)
-  socket.on("song:next", async ({ partyId, participantId }) => {
+  // Next song (host only).
+  // Pass { skipped: true } when the host manually advances (button / skip-to).
+  // Leave it falsy when the audio naturally ends — that song played in full.
+  socket.on("song:next", async ({ partyId, participantId, skipped }: { partyId: string; participantId: string; skipped?: boolean }) => {
     const party = await prisma.party.findUnique({ where: { id: partyId } });
     if (!party || party.hostId !== participantId) return;
+
+    // If the host manually skipped, mark the song that was currently playing as skipped.
+    if (skipped) {
+      const currentSong = await prisma.queueItem.findFirst({
+        where: { partyId, played: true, skipped: false },
+        orderBy: { position: "desc" },
+      });
+      if (currentSong) {
+        await prisma.queueItem.update({
+          where: { id: currentSong.id },
+          data: { skipped: true },
+        });
+      }
+    }
 
     const nextSong = await prisma.queueItem.findFirst({
       where: { partyId, played: false },
@@ -319,18 +335,38 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Skip directly to a specific song (host only)
+  // Skip directly to a specific song (host only).
+  // Songs before the target (jumped over) are marked skipped.
+  // The currently playing song is also marked skipped since it was interrupted.
   socket.on("song:skip-to", async ({ partyId, participantId, queueItemId }: { partyId: string; participantId: string; queueItemId: string }) => {
     const party = await prisma.party.findUnique({ where: { id: partyId } });
     if (!party || party.hostId !== participantId) return;
 
-    // Mark everything up to and including this item as played
     const target = await prisma.queueItem.findUnique({ where: { id: queueItemId } });
     if (!target || target.played) return;
 
+    // Mark the song that was currently playing as skipped (it was interrupted)
+    const currentSong = await prisma.queueItem.findFirst({
+      where: { partyId, played: true, skipped: false },
+      orderBy: { position: "desc" },
+    });
+    if (currentSong) {
+      await prisma.queueItem.update({
+        where: { id: currentSong.id },
+        data: { skipped: true },
+      });
+    }
+
+    // Mark all unplayed songs before the target as skipped (jumped over without playing)
     await prisma.queueItem.updateMany({
-      where: { partyId, played: false, position: { lte: target.position } },
-      data: { played: true, playedAt: new Date() },
+      where: { partyId, played: false, position: { lt: target.position } },
+      data: { played: true, skipped: true, playedAt: new Date() },
+    });
+
+    // Mark the target itself as played (not skipped) — this is the new now-playing song
+    await prisma.queueItem.update({
+      where: { id: queueItemId },
+      data: { played: true, skipped: false, playedAt: new Date() },
     });
 
     const state = await getPartyState(partyId);

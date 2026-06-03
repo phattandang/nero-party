@@ -47,6 +47,7 @@ model QueueItem {
   addedByName    String
   position       Int
   played         Boolean         @default(false)
+  skipped        Boolean         @default(false)
   playedAt       DateTime?
   createdAt      DateTime        @default(now())
   party          Party           @relation(fields: [partyId], references: [id], onDelete: Cascade)

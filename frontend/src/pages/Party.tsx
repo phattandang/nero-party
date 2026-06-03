@@ -738,7 +738,10 @@ export default function Party() {
   const upcomingQueue = party?.queue.filter((q) => !q.played) ?? [];
   // displayNow: prefer the actively-playing song (tracked by ID) so replays show correctly
   const displayNow = (currentSongId ? (party?.queue.find((q) => q.id === currentSongId) ?? null) : null) ?? nowPlaying;
-  const playedQueue = party?.queue.filter((q) => q.played && q.id !== displayNow?.id).reverse() ?? [];
+  // Fully-heard songs (not skipped, not the one currently playing)
+  const playedQueue = party?.queue.filter((q) => q.played && !q.skipped && q.id !== displayNow?.id).reverse() ?? [];
+  // Songs the host skipped over without letting them play
+  const skippedQueue = party?.queue.filter((q) => q.played && q.skipped).reverse() ?? [];
 
   const myVoteFor = useCallback((itemId: string) => {
     const item = party?.queue.find((q) => q.id === itemId);
@@ -832,7 +835,8 @@ export default function Party() {
 
   function handleNext() {
     if (!party) return;
-    socket.emit("song:next", { partyId: party.id, participantId });
+    // skipped: true — host manually advanced, current song didn't finish
+    socket.emit("song:next", { partyId: party.id, participantId, skipped: true });
   }
 
   function handleEndParty() {
@@ -1091,7 +1095,7 @@ export default function Party() {
             </DndContext>
           )}
 
-          {/* Played history */}
+          {/* Played history — songs that ran their full duration */}
           {playedQueue.length > 0 && (
             <div className="mt-4">
               <p className="text-xs text-white/20 uppercase tracking-widest font-medium flex items-center gap-1.5 mb-2">
@@ -1126,7 +1130,6 @@ export default function Party() {
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                         {isHost ? (
-                          /* Host sees two stats: fire votes + replay requests */
                           <>
                             <div className="flex items-center gap-1 rounded-full px-2 py-1 bg-white/4 border border-white/8 cursor-default select-none" title="Competition fire votes">
                               <Fire size={9} weight="fill" className="text-orange-400/50" />
@@ -1138,13 +1141,76 @@ export default function Party() {
                             </div>
                           </>
                         ) : (
-                          /* Guest: replay request toggle */
                           <button
                             onClick={(e) => { e.stopPropagation(); handleReplayToggle(item.id); }}
                             className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all duration-200 ${
                               myReplay
                                 ? "bg-[#FF9700]/20 border border-[#FF9700]/30 text-[#ffb340]"
                                 : "bg-white/5 border border-white/8 text-white/30 hover:text-[#ffb340] hover:bg-[#FF9700]/10"
+                            }`}
+                          >
+                            <ClockCounterClockwise size={10} weight={myReplay ? "fill" : "regular"} />
+                            {item.replayRequests.length}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Skipped list — songs the host manually skipped before they finished */}
+          {skippedQueue.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs text-white/20 uppercase tracking-widest font-medium flex items-center gap-1.5 mb-2">
+                <SkipForward size={11} />
+                Skipped
+              </p>
+              <div className="space-y-1.5">
+                {skippedQueue.map((item) => {
+                  const myReplay = myReplayFor(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => isHost ? handleReplay(item.id) : handleReplayToggle(item.id)}
+                      className={`flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 group cursor-pointer ${
+                        myReplay && !isHost
+                          ? "border-white/10 bg-white/4 opacity-100"
+                          : "border-white/4 bg-white/2 opacity-50 hover:opacity-90 hover:border-white/8"
+                      }`}
+                    >
+                      {item.albumArt ? (
+                        <img src={item.albumArt} alt={item.title} className="w-9 h-9 rounded-xl object-cover flex-shrink-0 grayscale opacity-60 group-hover:opacity-90 transition-all duration-300" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                          <MusicNote size={14} className="text-white/20" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate text-white/40">{item.title}</p>
+                        <p className="text-[10px] text-white/20 truncate">{item.artist}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {isHost ? (
+                          <>
+                            <div className="flex items-center gap-1 rounded-full px-2 py-1 bg-white/3 border border-white/6 cursor-default select-none" title="Competition fire votes">
+                              <Fire size={9} weight="fill" className="text-orange-400/35" />
+                              <span className="text-[10px] text-white/25">{item.votes.length}</span>
+                            </div>
+                            <div className="flex items-center gap-1 rounded-full px-2 py-1 bg-white/3 border border-white/6 cursor-default select-none" title="Participants want to hear again">
+                              <ClockCounterClockwise size={9} className="text-[#ffb340]/35" />
+                              <span className="text-[10px] text-white/25">{item.replayRequests.length}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleReplayToggle(item.id); }}
+                            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all duration-200 ${
+                              myReplay
+                                ? "bg-white/10 border border-white/15 text-white/50"
+                                : "bg-white/4 border border-white/6 text-white/20 hover:text-white/40 hover:bg-white/8"
                             }`}
                           >
                             <ClockCounterClockwise size={10} weight={myReplay ? "fill" : "regular"} />
