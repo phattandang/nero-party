@@ -19,21 +19,34 @@ A real-time music listening party app. Create a party, invite friends, add songs
 
 **Prerequisites:** Node.js 18+ and npm.
 
+Run these commands one at a time from inside the `nero-party/` directory:
+
 ```bash
-# 1. Install root-level dependencies (includes the dev runner)
+# 1. Install root-level dependencies (includes the concurrently dev runner)
 npm install
 
-# 2. Install backend + frontend dependencies
-#    Note: the frontend requires --legacy-peer-deps because @react-three/fiber
-#    declares a peer dep on React 19 while this project uses React 18.
-npm run install:all
-cd frontend && npm install --legacy-peer-deps && cd ..
+# 2. Install backend dependencies
+cd backend
+npm install
+cd ..
 
-# 3. Create the environment file
+# 3. Install frontend dependencies
+#    --legacy-peer-deps is required: @react-three/fiber declares a peer dep on
+#    React 19 but this project targets React 18. npm refuses without this flag.
+cd frontend
+npm install --legacy-peer-deps
+cd ..
+
+# 4. Create the environment file
+#    Mac/Linux:
 cp .env.example .env
+#    Windows (PowerShell):
+copy .env.example .env
 
-# 4. Set up the SQLite database
-cd backend && npx prisma migrate dev --name init && cd ..
+# 5. Set up the SQLite database
+cd backend
+npx prisma migrate dev --name init
+cd ..
 ```
 
 You only need to do this once. After the first setup, skip straight to the run commands below.
@@ -47,6 +60,12 @@ Use this to explore the app and test all features on your own machine using mult
 ```bash
 npm run dev
 ```
+
+> **If you see `EADDRINUSE: address already in use :::3000`**, another process is already using port 3000 (e.g. a previous server session). Kill it first:
+> - **Mac/Linux:** `lsof -ti:3000 | xargs kill`
+> - **Windows (PowerShell):** `Get-NetTCPConnection -LocalPort 3000 | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }`
+>
+> Then run `npm run dev` again.
 
 This starts two servers concurrently:
 - **Backend** (API + Socket.IO) → `http://localhost:3000`
