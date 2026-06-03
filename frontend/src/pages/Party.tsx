@@ -90,6 +90,8 @@ function NowPlayingCard({
   onSeek: (t: number) => void;
   isHost: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!item) {
     return (
       <div className="rounded-[2rem] border border-white/8 p-1.5 flex-1" style={{ background: "rgba(255,255,255,0.02)" }}>
@@ -106,112 +108,224 @@ function NowPlayingCard({
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <motion.div
-      key={item.id}
-      initial={{ opacity: 0, scale: 0.95, filter: "blur(8px)" }}
-      animate={{ opacity: 1, scale: 1, filter: "blur(0px)", transition: { duration: 0.6, ease: [0.32, 0.72, 0, 1] } }}
-      className="rounded-[2rem] border border-white/10 p-1.5 flex-1 flex flex-col"
-      style={{ background: "rgba(255,255,255,0.04)" }}
-    >
-      <div
-        className="rounded-[calc(2rem-0.375rem)] overflow-hidden relative h-full flex flex-col"
-        style={{ background: "rgba(8,8,12,0.9)", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.06)" }}
+    <>
+      {/* ── Compact card ── */}
+      <motion.div
+        key={item.id}
+        initial={{ opacity: 0, scale: 0.95, filter: "blur(8px)" }}
+        animate={{ opacity: 1, scale: 1, filter: "blur(0px)", transition: { duration: 0.6, ease: [0.32, 0.72, 0, 1] } }}
+        className="rounded-[2rem] border border-white/10 p-1.5 flex-1 flex flex-col"
+        style={{ background: "rgba(255,255,255,0.04)" }}
       >
-        {item.albumArt && (
-          <div
-            className="absolute inset-0 opacity-20"
-            style={{ backgroundImage: `url(${item.albumArt})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(40px) saturate(1.5)" }}
-          />
-        )}
-        <div className="relative z-10 p-8 flex flex-col flex-1">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Waveform playing={isPlaying} />
-              <span className="text-[11px] uppercase tracking-widest text-white/40 font-medium">Now Playing</span>
+        <div
+          className="rounded-[calc(2rem-0.375rem)] overflow-hidden relative h-full flex flex-col"
+          style={{ background: "rgba(8,8,12,0.9)", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.06)" }}
+        >
+          {item.albumArt && (<>
+            {/* Color atmosphere — blurred cover fill */}
+            <div className="absolute inset-0 opacity-15" style={{ backgroundImage: `url(${item.albumArt})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(50px) saturate(2)" }} />
+            {/* Actual image — contained, full, no crop */}
+            <div className="absolute inset-0" style={{ backgroundImage: `url(${item.albumArt})`, backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center", opacity: 0.18, filter: "brightness(0.7)" }} />
+          </>)}
+          <div className="relative z-10 p-8 flex flex-col flex-1">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Waveform playing={isPlaying} />
+                <span className="text-[11px] uppercase tracking-widest text-white/40 font-medium">Now Playing</span>
+              </div>
+              {item.addedByName && <span className="text-[10px] text-white/25 font-medium">added by {item.addedByName}</span>}
             </div>
-            {item.addedByName && (
-              <span className="text-[10px] text-white/25 font-medium">added by {item.addedByName}</span>
-            )}
-          </div>
 
-          {/* Art + info */}
-          <div className="flex gap-6 items-center mb-6">
-            {item.albumArt ? (
-              <div className="rounded-[1.2rem] border border-white/10 p-1 flex-shrink-0" style={{ background: "rgba(255,255,255,0.05)" }}>
-                <img src={item.albumArt} alt={item.title} className="w-24 h-24 rounded-[calc(1.2rem-0.25rem)] object-cover" />
-              </div>
-            ) : (
-              <div className="w-24 h-24 rounded-2xl bg-white/5 flex items-center justify-center flex-shrink-0">
-                <MusicNote size={32} className="text-white/20" />
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <h2 className="text-2xl font-bold tracking-tight leading-tight truncate mb-1">{item.title}</h2>
-              <p className="text-white/50 text-sm truncate mb-3">{item.artist}</p>
-              {isHost ? (
-                <button
-                  onClick={onPlayPause}
-                  className="flex items-center gap-2 rounded-full bg-white/8 border border-white/10 px-4 py-2 text-xs font-semibold text-white/60 hover:text-white hover:bg-white/12 transition-all duration-200 active:scale-95"
+            {/* Art + info */}
+            <div className="flex gap-6 items-center mb-6">
+              {item.albumArt ? (
+                <motion.div
+                  layoutId={`album-art-${item.id}`}
+                  onClick={() => setExpanded(true)}
+                  className="rounded-[1.2rem] border border-white/10 p-1 flex-shrink-0 cursor-pointer"
+                  style={{ background: "rgba(255,255,255,0.05)" }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
                 >
-                  {isPlaying ? <Pause size={13} /> : <Play size={13} />}
-                  {isPlaying ? "Pause" : "Play"}
-                </button>
+                  <img src={item.albumArt} alt={item.title} className="w-24 h-24 rounded-[calc(1.2rem-0.25rem)] object-cover" />
+                </motion.div>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-[10px] text-white/25 font-medium">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? "bg-[#ffb340] animate-pulse" : "bg-white/20"}`} />
-                  {isPlaying ? "Synced with host" : "Paused by host"}
-                </span>
+                <div className="w-24 h-24 rounded-2xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                  <MusicNote size={32} className="text-white/20" />
+                </div>
               )}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-2xl font-bold tracking-tight leading-tight truncate mb-1">{item.title}</h2>
+                <p className="text-white/50 text-sm truncate mb-3">{item.artist}</p>
+                {isHost ? (
+                  <button
+                    onClick={onPlayPause}
+                    className="flex items-center gap-2 rounded-full bg-white/8 border border-white/10 px-4 py-2 text-xs font-semibold text-white/60 hover:text-white hover:bg-white/12 transition-all duration-200 active:scale-95"
+                  >
+                    {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+                    {isPlaying ? "Pause" : "Play"}
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] text-white/25 font-medium">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? "bg-[#ffb340] animate-pulse" : "bg-white/20"}`} />
+                    {isPlaying ? "Synced with host" : "Paused by host"}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Progress bar + vote pushed to bottom */}
-          <div className="mt-auto">
-          {/* Progress bar — interactive for host, read-only for guests */}
-          <div className="mb-5">
-            <div className="relative">
-              <input
-                type="range"
-                min={0}
-                max={duration || 100}
-                step={0.1}
-                value={currentTime}
-                onChange={(e) => isHost && onSeek(Number(e.target.value))}
-                disabled={!isHost}
-                className={`w-full h-1 rounded-full appearance-none ${isHost ? "cursor-pointer" : "cursor-default"}`}
-                style={{
-                  background: `linear-gradient(to right, #FF9700 ${progress}%, rgba(255,255,255,0.1) ${progress}%)`,
-                  outline: "none",
-                }}
-              />
-            </div>
-            <div className="flex justify-between mt-1.5">
-              <span className="text-[10px] text-white/30 font-mono">{formatTime(currentTime)}</span>
-              <span className="text-[10px] text-white/20 font-mono">{formatTime(duration)}</span>
+            <div className="mt-auto">
+              <div className="mb-5">
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 100}
+                  step={0.1}
+                  value={currentTime}
+                  onChange={(e) => isHost && onSeek(Number(e.target.value))}
+                  disabled={!isHost}
+                  className={`w-full h-1 rounded-full appearance-none ${isHost ? "cursor-pointer" : "cursor-default"}`}
+                  style={{ background: `linear-gradient(to right, #FF9700 ${progress}%, rgba(255,255,255,0.12) ${progress}%)`, outline: "none" }}
+                />
+                <div className="flex justify-between mt-1.5">
+                  <span className="text-[10px] text-white/30 font-mono">{formatTime(currentTime)}</span>
+                  <span className="text-[10px] text-white/20 font-mono">{formatTime(duration)}</span>
+                </div>
+              </div>
+              <motion.button
+                onClick={onVote}
+                whileTap={{ scale: 0.92 }}
+                className={`flex items-center gap-2.5 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                  myVote ? "bg-orange-500/20 border border-orange-500/40 text-orange-400"
+                         : "bg-white/8 border border-white/10 text-white/50 hover:bg-white/12 hover:text-white/70"
+                }`}
+              >
+                <Fire size={16} weight={myVote ? "fill" : "regular"} className={myVote ? "text-orange-400" : ""} />
+                <span>{item.votes.length}</span>
+                {totalVoters > 0 && <span className="text-[10px] opacity-50">/ {totalVoters}</span>}
+              </motion.button>
             </div>
           </div>
-
-          {/* Vote row */}
-          <div className="flex items-center justify-between">
-            <motion.button
-              onClick={onVote}
-              whileTap={{ scale: 0.92 }}
-              className={`group flex items-center gap-2.5 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-                myVote
-                  ? "bg-orange-500/20 border border-orange-500/40 text-orange-400"
-                  : "bg-white/5 border border-white/10 text-white/50 hover:bg-white/8 hover:text-white/70"
-              }`}
-            >
-              <Fire size={16} weight={myVote ? "fill" : "regular"} className={myVote ? "text-orange-400" : ""} />
-              <span>{item.votes.length}</span>
-              {totalVoters > 0 && <span className="text-[10px] opacity-50">/ {totalVoters}</span>}
-            </motion.button>
-          </div>
-          </div>{/* end mt-auto wrapper */}
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+
+      {/* ── Full-screen backdrop overlay ── */}
+      <AnimatePresence>
+        {expanded && item.albumArt && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: { duration: 0.4 } }}
+              exit={{ opacity: 0, transition: { duration: 0.35 } }}
+              className="fixed inset-0 z-[150]"
+              onClick={() => setExpanded(false)}
+              style={{ backdropFilter: "blur(2px)" }}
+            >
+              {/* Layer 1: color atmosphere */}
+              <div className="absolute inset-0" style={{ backgroundImage: `url(${item.albumArt})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(40px) saturate(2.5) brightness(0.3)" }} />
+              {/* Layer 2: actual image — contained, full, recognisable */}
+              <div className="absolute inset-0" style={{ backgroundImage: `url(${item.albumArt})`, backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center", filter: "brightness(0.55)", opacity: 0.85 }} />
+              <div className="absolute inset-0 bg-black/50" />
+            </motion.div>
+
+            {/* Content panel */}
+            <motion.div
+              initial={{ opacity: 0, y: 32 }}
+              animate={{ opacity: 1, y: 0, transition: { delay: 0.1, duration: 0.5, ease: [0.32, 0.72, 0, 1] } }}
+              exit={{ opacity: 0, y: 32, transition: { duration: 0.3 } }}
+              className="fixed inset-0 z-[151] flex flex-col items-center justify-center px-8 pointer-events-none"
+            >
+              {/* Close hint */}
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, transition: { delay: 0.4 } }}
+                exit={{ opacity: 0 }}
+                onClick={() => setExpanded(false)}
+                className="pointer-events-auto absolute top-8 right-8 w-10 h-10 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/20 transition-all duration-200"
+              >
+                <X size={16} />
+              </motion.button>
+
+              <div className="flex flex-col items-center gap-8 w-full max-w-sm pointer-events-auto">
+                {/* Expanding album art via layoutId */}
+                <motion.div
+                  layoutId={`album-art-${item.id}`}
+                  className="rounded-[2rem] border border-white/20 p-1.5 shadow-[0_32px_80px_rgba(0,0,0,0.6)]"
+                  style={{ background: "rgba(255,255,255,0.08)" }}
+                  onClick={() => setExpanded(false)}
+                  transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+                >
+                  <img
+                    src={item.albumArt}
+                    alt={item.title}
+                    className="w-72 h-72 rounded-[calc(2rem-0.375rem)] object-cover"
+                  />
+                </motion.div>
+
+                {/* Song info */}
+                <div className="text-center">
+                  <h2 className="text-3xl font-extrabold tracking-tight leading-tight mb-1">{item.title}</h2>
+                  <p className="text-white/50 text-base">{item.artist}</p>
+                </div>
+
+                {/* Controls */}
+                <div className="w-full">
+                  {isHost && (
+                    <div className="flex justify-center mb-6">
+                      <button
+                        onClick={onPlayPause}
+                        className="w-16 h-16 rounded-full flex items-center justify-center text-black font-bold transition-all duration-200 active:scale-95 shadow-[0_0_40px_rgba(255,151,0,0.5)]"
+                        style={{ background: "#FF9700" }}
+                      >
+                        {isPlaying ? <Pause size={24} weight="fill" /> : <Play size={24} weight="fill" />}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Progress bar */}
+                  <div className="mb-5">
+                    <input
+                      type="range"
+                      min={0}
+                      max={duration || 100}
+                      step={0.1}
+                      value={currentTime}
+                      onChange={(e) => isHost && onSeek(Number(e.target.value))}
+                      disabled={!isHost}
+                      className={`w-full h-1.5 rounded-full appearance-none ${isHost ? "cursor-pointer" : "cursor-default"}`}
+                      style={{ background: `linear-gradient(to right, #FF9700 ${progress}%, rgba(255,255,255,0.15) ${progress}%)`, outline: "none" }}
+                    />
+                    <div className="flex justify-between mt-2">
+                      <span className="text-xs text-white/40 font-mono">{formatTime(currentTime)}</span>
+                      <span className="text-xs text-white/25 font-mono">{formatTime(duration)}</span>
+                    </div>
+                  </div>
+
+                  {/* Vote */}
+                  <div className="flex justify-center">
+                    <motion.button
+                      onClick={onVote}
+                      whileTap={{ scale: 0.92 }}
+                      className={`flex items-center gap-2.5 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-300 ${
+                        myVote ? "bg-orange-500/25 border border-orange-500/50 text-orange-400"
+                               : "bg-white/10 border border-white/15 text-white/60 hover:bg-white/15"
+                      }`}
+                    >
+                      <Fire size={16} weight={myVote ? "fill" : "regular"} className={myVote ? "text-orange-400" : ""} />
+                      <span>{item.votes.length}</span>
+                      {totalVoters > 0 && <span className="text-[10px] opacity-50">/ {totalVoters}</span>}
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -360,11 +474,11 @@ function QueueRow({
 
 // ─── Song Search Modal ────────────────────────────────────────────────────────
 
-function SearchModal({ onAdd, onClose }: { onAdd: (track: Track) => void; onClose: () => void }) {
+function SearchModal({ onAdd, onClose, queueTrackIds }: { onAdd: (track: Track) => void; onClose: () => void; queueTrackIds: Set<string> }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
-  const [added, setAdded] = useState<string | null>(null);
+  const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
@@ -378,10 +492,14 @@ function SearchModal({ onAdd, onClose }: { onAdd: (track: Track) => void; onClos
     return () => clearTimeout(debounceRef.current);
   }, [query]);
 
+  // A track shows a tick if it's in the party queue OR was just added this session
+  function isAdded(trackId: string) {
+    return queueTrackIds.has(trackId) || justAdded.has(trackId);
+  }
+
   function handleAdd(track: Track) {
     onAdd(track);
-    setAdded(track.id);
-    setTimeout(() => setAdded(null), 2000);
+    setJustAdded(prev => new Set(prev).add(track.id));
   }
 
   return createPortal(
@@ -440,8 +558,8 @@ function SearchModal({ onAdd, onClose }: { onAdd: (track: Track) => void; onClos
                   key={track.id}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0, transition: { delay: i * 0.035 } }}
-                  className="flex items-center gap-3 rounded-xl p-2.5 hover:bg-white/5 transition-all duration-150 group cursor-pointer"
-                  onClick={() => handleAdd(track)}
+                  className={`flex items-center gap-3 rounded-xl p-2.5 transition-all duration-150 group ${isAdded(track.id) ? "opacity-60 cursor-default" : "hover:bg-white/5 cursor-pointer"}`}
+                  onClick={() => !isAdded(track.id) && handleAdd(track)}
                 >
                   {track.albumArt ? (
                     <img src={track.albumArt} alt={track.title} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
@@ -455,7 +573,7 @@ function SearchModal({ onAdd, onClose }: { onAdd: (track: Track) => void; onClos
                     <p className="text-xs text-white/40 truncate">{track.artist}</p>
                   </div>
                   <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-150 bg-white/0 group-hover:bg-[#e07600]/20">
-                    {added === track.id ? (
+                    {isAdded(track.id) ? (
                       <Check size={14} className="text-green-400" />
                     ) : (
                       <Plus size={14} className="text-white/25 group-hover:text-[#ffb340] transition-colors duration-150" />
@@ -627,6 +745,13 @@ export default function Party() {
     return item?.votes.some((v) => v.participantId === participantId) ?? false;
   }, [party, participantId]);
 
+  const myReplayFor = useCallback((itemId: string) => {
+    const item = party?.queue.find((q) => q.id === itemId);
+    return item?.replayRequests.some((r) => r.participantId === participantId) ?? false;
+  }, [party, participantId]);
+
+  const queueTrackIds = new Set(party?.queue.map((q) => q.trackId) ?? []);
+
   useEffect(() => {
     if (!participantId || !code) {
       navigate("/");
@@ -785,6 +910,11 @@ export default function Party() {
     socket.emit("song:replay", { partyId: party.id, participantId, queueItemId });
   }
 
+  function handleReplayToggle(queueItemId: string) {
+    if (!party) return;
+    socket.emit("replay:toggle", { partyId: party.id, participantId, queueItemId });
+  }
+
   function handleSeek(time: number) {
     if (!audioRef.current || !party) return;
     audioRef.current.currentTime = time;
@@ -827,7 +957,7 @@ export default function Party() {
           onAddSong={() => setShowSearch(true)}
         />
         <AnimatePresence>
-          {showSearch && <SearchModal onAdd={handleAddSong} onClose={() => setShowSearch(false)} />}
+          {showSearch && <SearchModal onAdd={handleAddSong} onClose={() => setShowSearch(false)} queueTrackIds={queueTrackIds} />}
         </AnimatePresence>
       </>
     );
@@ -969,38 +1099,62 @@ export default function Party() {
                 Played
               </p>
               <div className="space-y-1.5">
-                {playedQueue.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => handleReplay(item.id)}
-                    className={`flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 group cursor-pointer ${
-                      displayNow?.id === item.id
-                        ? "border-[#e07600]/30 bg-[#e07600]/8 opacity-100"
-                        : "border-white/4 bg-white/2 opacity-60 hover:opacity-100 hover:border-white/10"
-                    }`}
-                  >
-                    {item.albumArt ? (
-                      <img src={item.albumArt} alt={item.title} className="w-9 h-9 rounded-xl object-cover flex-shrink-0 grayscale group-hover:grayscale-0 transition-all duration-300" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
-                        <MusicNote size={14} className="text-white/20" />
+                {playedQueue.map((item) => {
+                  const myReplay = myReplayFor(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => isHost ? handleReplay(item.id) : handleReplayToggle(item.id)}
+                      className={`flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 group cursor-pointer ${
+                        displayNow?.id === item.id
+                          ? "border-[#e07600]/30 bg-[#e07600]/8 opacity-100"
+                          : myReplay && !isHost
+                            ? "border-[#FF9700]/20 bg-[#FF9700]/5 opacity-100"
+                            : "border-white/4 bg-white/2 opacity-60 hover:opacity-100 hover:border-white/10"
+                      }`}
+                    >
+                      {item.albumArt ? (
+                        <img src={item.albumArt} alt={item.title} className="w-9 h-9 rounded-xl object-cover flex-shrink-0 grayscale group-hover:grayscale-0 transition-all duration-300" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                          <MusicNote size={14} className="text-white/20" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate text-white/60">{item.title}</p>
+                        <p className="text-[10px] text-white/30 truncate">{item.artist}</p>
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate text-white/60">{item.title}</p>
-                      <p className="text-[10px] text-white/30 truncate">{item.artist}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <span className="flex items-center gap-1 text-[10px] text-white/25">
-                        <Fire size={10} weight="fill" className="text-orange-400/40" />
-                        {item.votes.length}
-                      </span>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/20 group-hover:text-[#ffb340] transition-colors duration-150">
-                        <ClockCounterClockwise size={13} />
+                      <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {isHost ? (
+                          /* Host sees two stats: fire votes + replay requests */
+                          <>
+                            <div className="flex items-center gap-1 rounded-full px-2 py-1 bg-white/4 border border-white/8 cursor-default select-none" title="Competition fire votes">
+                              <Fire size={9} weight="fill" className="text-orange-400/50" />
+                              <span className="text-[10px] text-white/35">{item.votes.length}</span>
+                            </div>
+                            <div className="flex items-center gap-1 rounded-full px-2 py-1 bg-white/4 border border-white/8 cursor-default select-none" title="Participants want to hear again">
+                              <ClockCounterClockwise size={9} className="text-[#ffb340]/50" />
+                              <span className="text-[10px] text-white/35">{item.replayRequests.length}</span>
+                            </div>
+                          </>
+                        ) : (
+                          /* Guest: replay request toggle */
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleReplayToggle(item.id); }}
+                            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all duration-200 ${
+                              myReplay
+                                ? "bg-[#FF9700]/20 border border-[#FF9700]/30 text-[#ffb340]"
+                                : "bg-white/5 border border-white/8 text-white/30 hover:text-[#ffb340] hover:bg-[#FF9700]/10"
+                            }`}
+                          >
+                            <ClockCounterClockwise size={10} weight={myReplay ? "fill" : "regular"} />
+                            {item.replayRequests.length}
+                          </button>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1009,7 +1163,7 @@ export default function Party() {
     </div>
     {/* Search modal — portal renders outside the party layout */}
     <AnimatePresence>
-      {showSearch && <SearchModal onAdd={handleAddSong} onClose={() => setShowSearch(false)} />}
+      {showSearch && <SearchModal onAdd={handleAddSong} onClose={() => setShowSearch(false)} queueTrackIds={queueTrackIds} />}
     </AnimatePresence>
     </>
   );

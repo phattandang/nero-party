@@ -13,6 +13,12 @@ export interface Vote {
   participantId: string;
 }
 
+export interface ReplayRequest {
+  id: string;
+  queueItemId: string;
+  participantId: string;
+}
+
 export interface QueueItem {
   id: string;
   partyId: string;
@@ -28,6 +34,7 @@ export interface QueueItem {
   played: boolean;
   playedAt?: string;
   votes: Vote[];
+  replayRequests: ReplayRequest[];
 }
 
 export interface Participant {

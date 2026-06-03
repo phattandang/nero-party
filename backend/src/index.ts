@@ -43,7 +43,7 @@ async function getPartyState(partyId: string) {
       participants: { orderBy: { joinedAt: "asc" } },
       queue: {
         orderBy: { position: "asc" },
-        include: { votes: true },
+        include: { votes: true, replayRequests: true },
       },
     },
   });
@@ -285,6 +285,22 @@ io.on("connection", (socket) => {
     io.to(partyId).emit("party:state", state);
   });
 
+  // Toggle replay request on a played song (non-host participants only)
+  socket.on("replay:toggle", async ({ partyId, participantId, queueItemId }: { partyId: string; participantId: string; queueItemId: string }) => {
+    const party = await prisma.party.findUnique({ where: { id: partyId } });
+    if (!party || party.hostId === participantId) return; // host excluded
+
+    try {
+      await prisma.replayRequest.create({ data: { queueItemId, participantId } });
+    } catch {
+      await prisma.replayRequest.deleteMany({ where: { queueItemId, participantId } });
+    }
+
+    const state = await getPartyState(partyId);
+    if (!state) return;
+    io.to(partyId).emit("party:state", state);
+  });
+
   // Replay any already-played song — host only, broadcasts to entire room
   socket.on("song:replay", async ({ partyId, participantId, queueItemId }: { partyId: string; participantId: string; queueItemId: string }) => {
     const party = await prisma.party.findUnique({ where: { id: partyId } });
@@ -373,7 +389,7 @@ io.on("connection", (socket) => {
 async function buildResults(partyId: string) {
   const queue = await prisma.queueItem.findMany({
     where: { partyId },
-    include: { votes: true },
+    include: { votes: true, replayRequests: true },
     orderBy: { position: "asc" },
   });
 

@@ -90,14 +90,14 @@ function WinnerCard({ item }: { item: RankedItem }) {
       animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.9, ease: [0.32, 0.72, 0, 1] } }}
       className="relative w-full max-w-sm mx-auto"
     >
-      {/* Crown */}
+      {/* Crown — centered via inset-x-0 flex justify-center */}
       <motion.div
-        initial={{ opacity: 0, y: -20, scale: 0.5 }}
-        animate={{ opacity: 1, y: 0, scale: 1, transition: { delay: 0.5, duration: 0.6, type: "spring", stiffness: 200 } }}
-        className="absolute -top-8 left-1/2 -translate-x-1/2 z-20"
+        initial={{ opacity: 0, y: -24, scale: 0.4 }}
+        animate={{ opacity: 1, y: 0, scale: 1, transition: { delay: 0.5, duration: 0.7, type: "spring", stiffness: 180, damping: 12 } }}
+        className="absolute -top-11 inset-x-0 flex justify-center z-20"
       >
-        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "radial-gradient(circle, #f59e0b33, transparent)" }}>
-          <Crown size={32} weight="fill" className="text-yellow-400 drop-shadow-[0_0_16px_rgba(245,158,11,0.8)]" />
+        <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.25), transparent 70%)" }}>
+          <Crown size={48} weight="fill" className="text-yellow-400 drop-shadow-[0_0_20px_rgba(245,158,11,0.9)]" />
         </div>
       </motion.div>
 
