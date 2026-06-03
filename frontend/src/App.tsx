@@ -1,12 +1,21 @@
-function App() {
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AnimatePresence } from "motion/react";
+import Home from "./pages/Home";
+import Join from "./pages/Join";
+import Party from "./pages/Party";
+import Results from "./pages/Results";
+
+export default function App() {
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900">Nero Party</h1>
-        <p className="mt-2 text-gray-600">Start building here.</p>
-      </div>
-    </div>
+    <BrowserRouter>
+      <AnimatePresence mode="wait">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/join/:code?" element={<Join />} />
+          <Route path="/party/:code" element={<Party />} />
+          <Route path="/results/:partyId" element={<Results />} />
+        </Routes>
+      </AnimatePresence>
+    </BrowserRouter>
   );
 }
-
-export default App;

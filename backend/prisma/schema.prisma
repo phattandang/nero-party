@@ -7,4 +7,58 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-// Design your schema here
+model Party {
+  id           String        @id @default(cuid())
+  code         String        @unique
+  name         String
+  hostId       String
+  status       String        @default("lobby") // lobby | active | ended
+  maxSongs     Int           @default(20)
+  maxDuration  Int           @default(60) // minutes
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  participants Participant[]
+  queue        QueueItem[]
+}
+
+model Participant {
+  id          String      @id @default(cuid())
+  partyId     String
+  displayName String
+  avatarColor String
+  socketId    String?
+  isHost      Boolean     @default(false)
+  joinedAt    DateTime    @default(now())
+  party       Party       @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  votes       Vote[]
+}
+
+model QueueItem {
+  id           String   @id @default(cuid())
+  partyId      String
+  trackId      String
+  title        String
+  artist       String
+  albumArt     String?
+  previewUrl   String?
+  duration     Int      @default(30)
+  addedBy      String
+  addedByName  String
+  position     Int
+  played       Boolean  @default(false)
+  playedAt     DateTime?
+  createdAt    DateTime @default(now())
+  party        Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  votes        Vote[]
+}
+
+model Vote {
+  id            String      @id @default(cuid())
+  queueItemId   String
+  participantId String
+  createdAt     DateTime    @default(now())
+  queueItem     QueueItem   @relation(fields: [queueItemId], references: [id], onDelete: Cascade)
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([queueItemId, participantId])
+}

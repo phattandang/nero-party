@@ -3,6 +3,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import { env } from "./env.js";
+import { prisma } from "./lib/prisma.js";
 
 const app = express();
 const server = createServer(app);
@@ -17,20 +18,305 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-// Health check
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function generateCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  "#7c3aed", "#db2777", "#ea580c", "#16a34a",
+  "#0284c7", "#dc2626", "#9333ea", "#0891b2",
+];
+
+function randomColor(): string {
+  return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+}
+
+async function getPartyState(partyId: string) {
+  const party = await prisma.party.findUnique({
+    where: { id: partyId },
+    include: {
+      participants: { orderBy: { joinedAt: "asc" } },
+      queue: {
+        orderBy: { position: "asc" },
+        include: { votes: true },
+      },
+    },
+  });
+  return party;
+}
+
+// ─── REST Routes ────────────────────────────────────────────────────────────
+
+// Create party
+app.post("/api/parties", async (req, res) => {
+  const { name, hostName, maxSongs, maxDuration } = req.body;
+  if (!name || !hostName) {
+    return res.status(400).json({ error: "name and hostName required" });
+  }
+
+  let code = generateCode();
+  while (await prisma.party.findUnique({ where: { code } })) {
+    code = generateCode();
+  }
+
+  const party = await prisma.party.create({
+    data: {
+      code,
+      name,
+      hostId: "",
+      maxSongs: maxSongs || 20,
+      maxDuration: maxDuration || 60,
+    },
+  });
+
+  const host = await prisma.participant.create({
+    data: {
+      partyId: party.id,
+      displayName: hostName,
+      avatarColor: randomColor(),
+      isHost: true,
+    },
+  });
+
+  await prisma.party.update({
+    where: { id: party.id },
+    data: { hostId: host.id },
+  });
+
+  res.json({ party: { ...party, hostId: host.id }, participant: host });
 });
 
-// Socket.IO connection handling
+// Join party
+app.post("/api/parties/:code/join", async (req, res) => {
+  const { displayName } = req.body;
+  const { code } = req.params;
+
+  if (!displayName) return res.status(400).json({ error: "displayName required" });
+
+  const party = await prisma.party.findUnique({ where: { code: code.toUpperCase() } });
+  if (!party) return res.status(404).json({ error: "Party not found" });
+  if (party.status === "ended") return res.status(400).json({ error: "Party has ended" });
+
+  const participant = await prisma.participant.create({
+    data: {
+      partyId: party.id,
+      displayName,
+      avatarColor: randomColor(),
+      isHost: false,
+    },
+  });
+
+  res.json({ party, participant });
+});
+
+// Get party by code
+app.get("/api/parties/:code", async (req, res) => {
+  const party = await prisma.party.findUnique({
+    where: { code: req.params.code.toUpperCase() },
+    include: {
+      participants: { orderBy: { joinedAt: "asc" } },
+      queue: {
+        orderBy: { position: "asc" },
+        include: { votes: true },
+      },
+    },
+  });
+  if (!party) return res.status(404).json({ error: "Party not found" });
+  res.json(party);
+});
+
+// Deezer search proxy
+app.get("/api/music/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: "query required" });
+
+  try {
+    const response = await fetch(
+      `https://api.deezer.com/search?q=${encodeURIComponent(q as string)}&limit=10`
+    );
+    const data = await response.json() as any;
+    const tracks = (data.data || []).map((t: any) => ({
+      id: String(t.id),
+      title: t.title,
+      artist: t.artist.name,
+      albumArt: t.album.cover_medium,
+      previewUrl: t.preview,
+      duration: t.duration,
+    }));
+    res.json(tracks);
+  } catch (e) {
+    res.status(500).json({ error: "Music search failed" });
+  }
+});
+
+// Health check
+app.get("/health", (_req, res) => res.json({ status: "ok" }));
+
+// ─── Socket.IO ──────────────────────────────────────────────────────────────
+
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
-  socket.on("disconnect", () => {
+  // Join a party room
+  socket.on("party:join", async ({ partyId, participantId }) => {
+    if (!partyId) return;
+    socket.join(partyId);
+    try {
+      await prisma.participant.update({
+        where: { id: participantId },
+        data: { socketId: socket.id },
+      });
+    } catch { /* stale participantId — still send state */ }
+    const state = await getPartyState(partyId);
+    if (!state) return;
+    io.to(partyId).emit("party:state", state);
+  });
+
+  // Start the party (host only)
+  socket.on("party:start", async ({ partyId, participantId }) => {
+    const party = await prisma.party.findUnique({ where: { id: partyId } });
+    if (!party || party.hostId !== participantId) return;
+
+    const firstSong = await prisma.queueItem.findFirst({
+      where: { partyId, played: false },
+      orderBy: { position: "asc" },
+    });
+
+    await prisma.party.update({
+      where: { id: partyId },
+      data: { status: "active" },
+    });
+
+    if (firstSong) {
+      await prisma.queueItem.update({
+        where: { id: firstSong.id },
+        data: { played: true, playedAt: new Date() },
+      });
+    }
+
+    const state = await getPartyState(partyId);
+    io.to(partyId).emit("party:state", state);
+    if (firstSong) io.to(partyId).emit("song:play", firstSong);
+  });
+
+  // Add song to queue
+  socket.on("queue:add", async ({ partyId, participantId, track }) => {
+    const party = await prisma.party.findUnique({
+      where: { id: partyId },
+      include: { queue: true },
+    });
+    if (!party || party.status === "ended") return;
+
+    const participant = await prisma.participant.findUnique({ where: { id: participantId } });
+    if (!participant) return;
+
+    const maxPos = party.queue.length > 0
+      ? Math.max(...party.queue.map((q) => q.position))
+      : -1;
+
+    const item = await prisma.queueItem.create({
+      data: {
+        partyId,
+        trackId: track.id,
+        title: track.title,
+        artist: track.artist,
+        albumArt: track.albumArt || "",
+        previewUrl: track.previewUrl || "",
+        duration: track.duration || 30,
+        addedBy: participantId,
+        addedByName: participant.displayName,
+        position: maxPos + 1,
+      },
+    });
+
+    const state = await getPartyState(partyId);
+    io.to(partyId).emit("party:state", state);
+    io.to(partyId).emit("queue:added", item);
+  });
+
+  // Next song (host only)
+  socket.on("song:next", async ({ partyId, participantId }) => {
+    const party = await prisma.party.findUnique({ where: { id: partyId } });
+    if (!party || party.hostId !== participantId) return;
+
+    const nextSong = await prisma.queueItem.findFirst({
+      where: { partyId, played: false },
+      orderBy: { position: "asc" },
+    });
+
+    if (!nextSong) {
+      // No more songs — end party
+      await prisma.party.update({ where: { id: partyId }, data: { status: "ended" } });
+      const state = await getPartyState(partyId);
+      io.to(partyId).emit("party:state", state);
+      io.to(partyId).emit("party:ended", await buildResults(partyId));
+      return;
+    }
+
+    await prisma.queueItem.update({
+      where: { id: nextSong.id },
+      data: { played: true, playedAt: new Date() },
+    });
+
+    const state = await getPartyState(partyId);
+    io.to(partyId).emit("party:state", state);
+    io.to(partyId).emit("song:play", nextSong);
+  });
+
+  // Cast a vote (fire reaction)
+  socket.on("vote:cast", async ({ partyId, participantId, queueItemId }) => {
+    try {
+      await prisma.vote.create({
+        data: { queueItemId, participantId },
+      });
+    } catch {
+      // Already voted — remove vote (toggle)
+      await prisma.vote.deleteMany({
+        where: { queueItemId, participantId },
+      });
+    }
+
+    const state = await getPartyState(partyId);
+    io.to(partyId).emit("party:state", state);
+  });
+
+  // End party (host only)
+  socket.on("party:end", async ({ partyId, participantId }) => {
+    const party = await prisma.party.findUnique({ where: { id: partyId } });
+    if (!party || party.hostId !== participantId) return;
+
+    await prisma.party.update({ where: { id: partyId }, data: { status: "ended" } });
+    const results = await buildResults(partyId);
+    const state = await getPartyState(partyId);
+    io.to(partyId).emit("party:state", state);
+    io.to(partyId).emit("party:ended", results);
+  });
+
+  socket.on("disconnect", async () => {
     console.log("Client disconnected:", socket.id);
+    await prisma.participant.updateMany({
+      where: { socketId: socket.id },
+      data: { socketId: null },
+    });
   });
 });
 
+async function buildResults(partyId: string) {
+  const queue = await prisma.queueItem.findMany({
+    where: { partyId },
+    include: { votes: true },
+    orderBy: { position: "asc" },
+  });
+
+  const ranked = queue
+    .map((item) => ({ ...item, voteCount: item.votes.length }))
+    .sort((a, b) => b.voteCount - a.voteCount || a.position - b.position);
+
+  return ranked;
+}
+
 server.listen(env.PORT, () => {
-  console.log(`Server running on http://localhost:${env.PORT}`);
+  console.log(`🎵 Nero Party server running on http://localhost:${env.PORT}`);
 });
