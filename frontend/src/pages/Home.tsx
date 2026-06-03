@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform, useSpring, MotionValue, AnimatePresence } from "motion/react";
-import { MusicNote, Users, Timer, ArrowRight, Sparkle } from "@phosphor-icons/react";
+import { MusicNote, Users, Timer, ArrowRight, Sparkle, Queue, Fire, Trophy } from "@phosphor-icons/react";
 import { createParty } from "../lib/api";
 import SplitText from "../components/SplitText";
 import { useMouseParallax } from "../hooks/useMouseParallax";
@@ -103,6 +103,107 @@ function MarqueeStrip() {
             <span className="text-[#FF9700]/30 text-[10px]">•</span>
           </span>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Transition zone — animated bridge between intro and hero ────────────────
+
+const NOTE_POSITIONS = [
+  { left: "7%",  top: "30%", size: 18, delay: 0,    floatDur: 3.6, opacity: 0.12 },
+  { left: "20%", top: "60%", size: 12, delay: 0.35, floatDur: 4.1, opacity: 0.08 },
+  { left: "38%", top: "20%", size: 22, delay: 0.15, floatDur: 3.2, opacity: 0.10 },
+  { left: "55%", top: "70%", size: 10, delay: 0.5,  floatDur: 4.8, opacity: 0.07 },
+  { left: "68%", top: "25%", size: 16, delay: 0.25, floatDur: 3.9, opacity: 0.11 },
+  { left: "82%", top: "55%", size: 14, delay: 0.4,  floatDur: 4.3, opacity: 0.09 },
+  { left: "93%", top: "35%", size: 20, delay: 0.1,  floatDur: 3.5, opacity: 0.10 },
+];
+
+const FEATURE_PILLS = [
+  { icon: Queue,   label: "Live Queue",     delay: 0.1  },
+  { icon: Fire,    label: "Blind Voting",   delay: 0.2  },
+  { icon: Trophy,  label: "Winner Reveal",  delay: 0.3  },
+];
+
+function TransitionZone() {
+  return (
+    <div className="relative overflow-hidden" style={{ minHeight: "40dvh", paddingTop: "6dvh", paddingBottom: "6dvh" }}>
+      {/* Floating music notes */}
+      {NOTE_POSITIONS.map((n, i) => (
+        <motion.div
+          key={i}
+          className="absolute pointer-events-none"
+          style={{ left: n.left, top: n.top }}
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: n.opacity, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ delay: n.delay, duration: 0.9, ease: [0.32, 0.72, 0, 1] }}
+        >
+          <motion.div
+            animate={{ y: [0, -14, 0] }}
+            transition={{ duration: n.floatDur, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <MusicNote size={n.size} weight="fill" className="text-[#FF9700]" />
+          </motion.div>
+        </motion.div>
+      ))}
+
+      {/* Center content */}
+      <div className="relative z-10 flex flex-col items-center justify-center h-full gap-8 px-4">
+        {/* Glowing divider line */}
+        <motion.div
+          className="flex items-center gap-4 w-full max-w-lg"
+          initial={{ opacity: 0, scaleX: 0.4 }}
+          whileInView={{ opacity: 1, scaleX: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.9, ease: [0.32, 0.72, 0, 1] }}
+        >
+          <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, rgba(255,151,0,0.2))" }} />
+          <span className="text-[10px] uppercase tracking-[0.4em] text-white/18 font-medium whitespace-nowrap flex items-center gap-2">
+            <MusicNote size={8} weight="fill" className="text-[#FF9700]/40" />
+            Where every listen counts
+            <MusicNote size={8} weight="fill" className="text-[#FF9700]/40" />
+          </span>
+          <div className="flex-1 h-px" style={{ background: "linear-gradient(to left, transparent, rgba(255,151,0,0.2))" }} />
+        </motion.div>
+
+        {/* Feature pills row */}
+        <div className="flex items-center gap-3 flex-wrap justify-center">
+          {FEATURE_PILLS.map(({ icon: Icon, label, delay }) => (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 16, scale: 0.9 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay, duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
+              className="flex items-center gap-2 rounded-full border border-white/8 bg-white/3 px-4 py-2"
+            >
+              <Icon size={12} weight="fill" className="text-[#FF9700]/60" />
+              <span className="text-[11px] text-white/30 font-medium tracking-wide">{label}</span>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Down-arrow scroll cue */}
+        <motion.div
+          className="flex flex-col items-center gap-1.5"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+        >
+          <span className="text-[9px] uppercase tracking-[0.45em] text-white/15 font-medium">
+            Start your session
+          </span>
+          <motion.div
+            animate={{ y: [0, 6, 0] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            className="text-white/15"
+          >
+            <ArrowRight size={14} style={{ transform: "rotate(90deg)" }} />
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );
@@ -453,13 +554,10 @@ export default function Home() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════
-          SECTION 1 — Cinematic intro
-          200dvh wrapper: first 100dvh is the sticky panel, second 100dvh is
-          the "scroll budget" that keeps the panel pinned while transforms play.
+          SECTION 1 — Cinematic intro (plain 100dvh — no sticky, no blank gap)
       ═══════════════════════════════════════════════════════════════════════ */}
-      <div style={{ height: "200dvh" }}>
-        <div className="sticky top-0 h-[100dvh] overflow-hidden intro-fade-bottom">
-          <motion.div
+      <div className="h-[100dvh] overflow-hidden intro-fade-bottom relative">
+        <motion.div
             style={{ opacity: introOpacity, y: introY, filter: introFilter }}
             className="relative h-full flex flex-col"
           >
@@ -569,9 +667,11 @@ export default function Home() {
             {/* Scroll indicator */}
             <ScrollIndicator opacity={scrollCueOpacity} />
           </motion.div>
-        </div>
       </div>
       {/* ═══ end SECTION 1 ══════════════════════════════════════════════════ */}
+
+      {/* ── Animated transition zone between intro and hero ─────────────── */}
+      <TransitionZone />
 
       {/* ═══════════════════════════════════════════════════════════════════════
           SECTION 2 — Hero (existing create/join UI)

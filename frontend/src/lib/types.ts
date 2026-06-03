@@ -33,6 +33,7 @@ export interface QueueItem {
   position: number;
   played: boolean;
   skipped: boolean;
+  secondsPlayed: number;
   playedAt?: string;
   votes: Vote[];
   replayRequests: ReplayRequest[];
@@ -61,4 +62,5 @@ export interface Party {
 
 export interface RankedItem extends QueueItem {
   voteCount: number;
+  replayCount: number;
 }

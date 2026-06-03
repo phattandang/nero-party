@@ -835,8 +835,8 @@ export default function Party() {
 
   function handleNext() {
     if (!party) return;
-    // skipped: true — host manually advanced, current song didn't finish
-    socket.emit("song:next", { partyId: party.id, participantId, skipped: true });
+    // skipped: true + currentTime so backend records exactly how much was heard
+    socket.emit("song:next", { partyId: party.id, participantId, skipped: true, currentTime });
   }
 
   function handleEndParty() {
@@ -906,7 +906,8 @@ export default function Party() {
 
   function handleSkipTo(queueItemId: string) {
     if (!party) return;
-    socket.emit("song:skip-to", { partyId: party.id, participantId, queueItemId });
+    // currentTime lets the backend record how long the interrupted song was heard
+    socket.emit("song:skip-to", { partyId: party.id, participantId, queueItemId, currentTime });
   }
 
   function handleReplay(queueItemId: string) {
