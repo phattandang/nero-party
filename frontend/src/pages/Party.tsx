@@ -7,6 +7,7 @@ import {
   Copy, Check, Crown, MusicNote, Plus, ArrowRight, X, LinkSimple,
   DotsThreeVertical, ArrowFatLinesUp, DotsSixVertical, ClockCounterClockwise,
 } from "@phosphor-icons/react";
+import { FlowProgress } from "../components/cinematic/FlowProgress";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -619,7 +620,13 @@ function LobbyScreen({
   }
 
   return (
-    <div className="relative min-h-[100dvh] flex flex-col items-center justify-center px-4 overflow-hidden">
+    // Entrance: slides in from the right — continuation of the forward flow from Home
+    <motion.div
+      initial={{ opacity: 0, x: 60, filter: "blur(10px)" }}
+      animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      className="relative min-h-[100dvh] flex flex-col items-center justify-center px-4 overflow-hidden"
+    >
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="glow-pulse absolute top-1/3 left-1/4 w-[500px] h-[500px] rounded-full bg-[#FF9700]/8 blur-[120px]" />
         <div className="glow-pulse absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-[#e07600]/6 blur-[100px]" style={{ animationDelay: "1.5s" }} />
@@ -630,6 +637,11 @@ function LobbyScreen({
         animate={{ opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.7, ease: [0.32, 0.72, 0, 1] } }}
         className="w-full max-w-md"
       >
+        {/* Flow progress — Step 2: Queue */}
+        <div className="flex justify-center mb-8">
+          <FlowProgress step={2} />
+        </div>
+
         <div className="text-center mb-8">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.2em] font-medium text-white/40 mb-4">
             Lobby
@@ -709,7 +721,7 @@ function LobbyScreen({
           <p className="text-center text-white/30 text-sm">Waiting for the host to start the party...</p>
         )}
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -943,12 +955,20 @@ export default function Party() {
 
   if (!party) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-[#e07600]/30 border-t-[#e07600] animate-spin" />
-          <p className="text-white/30 text-sm">Loading party...</p>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="min-h-[100dvh] flex items-center justify-center"
+      >
+        <div className="flex flex-col items-center gap-6">
+          <FlowProgress step={2} />
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 rounded-full border-2 border-[#e07600]/30 border-t-[#e07600] animate-spin" />
+            <p className="text-white/25 text-xs uppercase tracking-widest font-medium">Joining the room...</p>
+          </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -970,7 +990,13 @@ export default function Party() {
 
   return (
     <>
-    <div className="relative min-h-[100dvh] flex flex-col overflow-hidden">
+    {/* Party screen entrance — reveals when lobby transitions to active */}
+    <motion.div
+      initial={{ opacity: 0, filter: "blur(12px)" }}
+      animate={{ opacity: 1, filter: "blur(0px)" }}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="relative min-h-[100dvh] flex flex-col overflow-hidden"
+    >
       {/* Hidden audio — uses ref callback so pending songs are drained the moment it mounts */}
       <audio
         ref={setAudioRef}
@@ -1227,7 +1253,7 @@ export default function Party() {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
     {/* Search modal — portal renders outside the party layout */}
     <AnimatePresence>
       {showSearch && <SearchModal onAdd={handleAddSong} onClose={() => setShowSearch(false)} queueTrackIds={queueTrackIds} />}
