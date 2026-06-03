@@ -20,13 +20,19 @@ A real-time music listening party app. Create a party, invite friends, add songs
 **Prerequisites:** Node.js 18+ and npm.
 
 ```bash
-# 1. Install all dependencies (backend + frontend)
-npm run install:all
+# 1. Install root-level dependencies (includes the dev runner)
+npm install
 
-# 2. Create the environment file
+# 2. Install backend + frontend dependencies
+#    Note: the frontend requires --legacy-peer-deps because @react-three/fiber
+#    declares a peer dep on React 19 while this project uses React 18.
+npm run install:all
+cd frontend && npm install --legacy-peer-deps && cd ..
+
+# 3. Create the environment file
 cp .env.example .env
 
-# 3. Set up the SQLite database
+# 4. Set up the SQLite database
 cd backend && npx prisma migrate dev --name init && cd ..
 ```
 

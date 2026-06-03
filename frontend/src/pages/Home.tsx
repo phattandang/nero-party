@@ -366,7 +366,7 @@ function HeroEntry({
         <MotionText stagger={0.08} delay={0.2}>Music is better</MotionText>
         {" "}
         <motion.span
-          className="italic inline-block text-shimmer"
+          className="italic inline-block text-shimmer pb-2"
           style={{ background: "linear-gradient(90deg, #FF9700, #ffb340, #c96500, #FF9700)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
