@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "motion/react";
-import { PartyWidget } from "./PartyWidget";
+import { DJController } from "./DJController";
 import { MusicVisualizer } from "./MusicVisualizer";
 
 const PHASES = [
@@ -126,7 +126,7 @@ export function StickyShowcase() {
           {/* Right: widget — cinematic slide-in */}
           <div className="flex items-center justify-center lg:justify-end">
             <motion.div style={{ x: widgetX, opacity: widgetOpacity, filter: widgetFilter, scale: widgetScale }}>
-              <PartyWidget />
+              <DJController />
             </motion.div>
           </div>
         </div>

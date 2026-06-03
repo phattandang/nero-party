@@ -2,12 +2,12 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform, useSpring, MotionValue, AnimatePresence } from "motion/react";
 import {
-  MusicNote, Users, Timer, ArrowRight, Sparkle, Queue, Fire, Trophy,
-  Waveform, Star,
+  MusicNote, Users, Timer, ArrowRight, Sparkle, Queue, Fire, Trophy, Star,
 } from "@phosphor-icons/react";
 import { createParty } from "../lib/api";
 import { useMouseParallax } from "../hooks/useMouseParallax";
-import { StickyShowcase } from "../components/cinematic/StickyShowcase";
+
+import { DJController } from "../components/cinematic/DJController";
 import { SceneSection } from "../components/cinematic/SceneSection";
 import { MetricsStrip } from "../components/cinematic/MetricsStrip";
 import { FinalCTA } from "../components/cinematic/FinalCTA";
@@ -58,54 +58,7 @@ const GLOBAL_WAVEFORM_BARS = Array.from({ length: 48 }, (_, i) => ({
 
 // ─── Scene visuals (module-level to avoid re-creation on render) ──────────────
 
-/** Scene 1 visual — real-time sync orb */
-function SyncOrb() {
-  const rings = [96, 140, 188];
-  return (
-    <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
-      {rings.map((size, i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full border border-[#FF9700]/14"
-          style={{ width: size, height: size }}
-          animate={{ scale: [1, 1.08, 1], opacity: [0.5, 0.15, 0.5] }}
-          transition={{ duration: 3.2 + i * 0.7, delay: i * 0.9, repeat: Infinity, ease: "easeInOut" }}
-        />
-      ))}
-      <motion.div
-        className="relative z-10 w-20 h-20 rounded-2xl flex items-center justify-center"
-        style={{
-          background: "linear-gradient(135deg, rgba(255,151,0,0.14), rgba(255,151,0,0.06))",
-          border: "1px solid rgba(255,151,0,0.22)",
-          boxShadow: "0 0 40px rgba(255,151,0,0.12)",
-        }}
-        animate={{ scale: [1, 1.06, 1] }}
-        transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <Waveform size={34} weight="fill" className="text-[#FF9700]/70" />
-      </motion.div>
-      {/* Satellite dots */}
-      {[0, 72, 144, 216, 288].map((angle, i) => {
-        const r = (angle * Math.PI) / 180;
-        const x = Math.round(Math.cos(r) * 88);
-        const y = Math.round(Math.sin(r) * 88);
-        return (
-          <motion.div
-            key={i}
-            className="absolute w-2.5 h-2.5 rounded-full bg-[#FF9700]"
-            style={{
-              left: `calc(50% + ${x}px - 5px)`,
-              top: `calc(50% + ${y}px - 5px)`,
-              opacity: 0.35 + (i % 3) * 0.15,
-            }}
-            animate={{ scale: [1, 1.6, 1], opacity: [0.35, 0.7, 0.35] }}
-            transition={{ duration: 2.4, delay: i * 0.42, repeat: Infinity, ease: "easeInOut" }}
-          />
-        );
-      })}
-    </div>
-  );
-}
+// SyncOrb removed — DJController is used for Scene 1
 
 /** Scene 2 visual — fire voting stack */
 function VoteStack() {
@@ -809,19 +762,14 @@ export default function Home() {
       </motion.div>
 
       {/* ══════════════════════════════════════════════════════════════════
-          SCENE 3 — Sticky showcase  (Lusion-style widget slide-in)
-      ══════════════════════════════════════════════════════════════════ */}
-      <StickyShowcase />
-
-      {/* ══════════════════════════════════════════════════════════════════
-          SCENES 4–6 — Feature capability scenes
+          SCENES 3–5 — Feature capability scenes
       ══════════════════════════════════════════════════════════════════ */}
       <SceneSection
         index={0}
         eyebrow="Real-time sync"
         headline="Everyone hears the same beat."
         body="The host controls the queue. Every guest's audio starts at the exact same moment — no latency, no drift, no one three seconds behind."
-        visual={<SyncOrb />}
+        visual={<DJController />}
         align="left"
         accent="#FF9700"
       />
